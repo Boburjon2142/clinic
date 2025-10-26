@@ -1,0 +1,147 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Kvitansiya {{ doctor.code_prefix }}{{ appointment.doc_no|stringformat:"03d" }}</title>
+  <style>
+    @page { size: 80mm auto; margin: 4mm; }
+    body { font-family: 'DejaVu Sans', Arial, sans-serif; width: 68mm; margin: 0 auto; }
+    .center { text-align: center; }
+    .small { font-size: 12px; }
+    .muted { color: #555; }
+    .stars { text-align:center; font-size: 12px; margin: 4px 0; }
+    .sep { border: 0; border-top: 1px dashed #000; margin: 6px 0; }
+    .lr { display:flex; justify-content: space-between; font-size: 12px; }
+    .title { font-weight: 700; font-size: 16px; letter-spacing: 1px; margin-bottom: 4px; }
+    .block { margin: 4px 0; }
+    .line { border-bottom: 1px dotted #000; display:inline-block; min-width: 40mm; height: 12px; }
+    .line-full { border-bottom: 1px dotted #000; display:block; width:100%; height:12px; margin: 2px 0; }
+    .justify { text-align: justify; text-justify: inter-word; }
+    .print-toolbar { display: none; text-align: center; margin: 6px 0; }
+    .print-toolbar.show { display: block; }
+    @media print { .print-toolbar { display: none !important; } }
+  </style>
+</head>
+<body>
+  <div class="print-toolbar" id="printToolbar">
+    <button type="button" id="btnPrint">Chop etish</button>
+    <button type="button" id="btnClose" style="margin-left:8px;">Oynani yopish</button>
+  </div>
+  <div class="center">
+    <div class="title">{{ setting.clinic_name|default:'KLINIKA'|upper }}</div>
+  </div>
+  <div class="stars">********************************</div>
+  <div class="small">
+    {% if setting and setting.clinic_address %}
+      <div class="lr"><span>Manzil:</span><span>{{ setting.clinic_address }}</span></div>
+    {% endif %}
+    {% if setting and setting.clinic_phone %}
+      <div class="lr"><span>Tel:</span><span>{{ setting.clinic_phone }}</span></div>
+    {% endif %}
+  </div>
+  <div class="stars">********************************</div>
+
+  <div class="block small">
+    <div class="lr"><span>Hujjat:</span><span>
+      {% if appointment.doc_no %}{{ doctor.code_prefix }}{{ appointment.doc_no|stringformat:"03d" }}{% else %}{{ doctor.code_prefix }}{{ appointment.id|stringformat:"03d" }}{% endif %}
+    </span></div>
+    <div class="lr"><span>Sana:</span><span>{{ appointment.date }}</span></div>
+    <div class="lr"><span>Vaqt:</span><span>{{ appointment.time }}</span></div>
+  </div>
+  <hr class="sep">
+  <div class="block small">
+    <div class="lr"><span><strong>Bemor:</strong></span><span>{{ patient.full_name }}</span></div>
+    <div class="lr"><span><strong>Shifokor:</strong></span><span>{{ doctor.full_name }}</span></div>
+    {% if doctor.room_number %}
+      <div class="lr"><span><strong>Xona:</strong></span><span>{{ doctor.room_number }}</span></div>
+    {% endif %}
+    {% if appointment.complaint %}
+      <div class="lr"><span><strong>Shikoyat:</strong></span><span>{{ appointment.complaint.name }}</span></div>
+    {% endif %}
+  </div>
+  <div class="stars">********************************</div>
+  <div class="center small muted">
+    {% if setting and setting.receipt_footer %}{{ setting.receipt_footer }}{% else %}Rahmat!{% endif %}
+  </div>
+  <script>
+    (function(){
+      var toolbar = document.getElementById('printToolbar');
+      var btnPrint = document.getElementById('btnPrint');
+      var btnClose = document.getElementById('btnClose');
+
+      function showToolbar() {
+        if (toolbar) toolbar.classList.add('show');
+      }
+
+      function tryCloseAll(){
+        try{ window.close(); }catch(e){}
+        try { if (window.opener) window.opener.postMessage({type:'receiptPrinted'}, '*'); } catch (e) {}
+        try { if (window.opener) window.opener.location.href = '/'; } catch (e) {}
+      }
+
+      function doPrint() {
+        try { window.focus(); } catch (e) {}
+        try {
+          // Trigger print; execution continues after dialog closes
+          window.print();
+          // If opened for auto-print, close the window afterwards
+          if (typeof auto !== 'undefined' && auto) {
+            // Attempt immediate + scheduled closes (covers browsers not firing onafterprint)
+            tryCloseAll();
+            setTimeout(tryCloseAll, 800);
+            setTimeout(tryCloseAll, 1600);
+            setTimeout(tryCloseAll, 3000);
+          }
+        } catch (e) { showToolbar(); }
+      }
+
+      if (btnPrint) btnPrint.addEventListener('click', doPrint);
+      if (btnClose) btnClose.addEventListener('click', function(){ try{ window.close(); }catch(e){} });
+
+      var printed = false;
+      if ('onafterprint' in window) {
+        window.onafterprint = function(){
+          printed = true;
+          tryCloseAll();
+        };
+      }
+      // Fallback: when focus returns after print dialog, attempt to close
+      window.addEventListener('focus', function(){
+        if (typeof auto !== 'undefined' && auto && !printed) {
+          try{ window.close(); }catch(e){}
+          try { if (window.opener) window.opener.postMessage({type:'receiptPrinted'}, '*'); } catch (e) {}
+        }
+      });
+
+      // Extra fallback: media query print listener
+      try {
+        var mql = window.matchMedia('print');
+        var onChange = function(ev){
+          if (!ev.matches && typeof auto !== 'undefined' && auto) {
+            tryCloseAll();
+          }
+        };
+        if (mql && mql.addEventListener) mql.addEventListener('change', onChange);
+        else if (mql && mql.addListener) mql.addListener(onChange);
+      } catch (e) {}
+
+      // Extra: when page becomes visible again after print dialog, close
+      document.addEventListener('visibilitychange', function(){
+        if (document.visibilityState === 'visible' && typeof auto !== 'undefined' && auto) {
+          tryCloseAll();
+        }
+      });
+
+      var auto = {% if auto_print %}true{% else %}false{% endif %};
+      if (auto) {
+        setTimeout(function(){
+          doPrint();
+          setTimeout(function(){ if (!printed) showToolbar(); }, 800);
+        }, 200);
+      } else {
+        showToolbar();
+      }
+    })();
+  </script>
+</body>
+</html>

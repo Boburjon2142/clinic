@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+{% block title %}{{ doctor.full_name }} — Qabullar{% endblock %}
+{% block content %}
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h3 class="mb-0">{{ doctor.full_name }} — Qabullar</h3>
+    <div>
+      <a class="btn btn-secondary" href="/admin/doctors/">Shifokorlar</a>
+    </div>
+  </div>
+
+  <form class="row g-2 mb-3" method="get">
+    <div class="col-auto">
+      <input type="date" class="form-control" name="start" value="{{ start }}">
+    </div>
+    <div class="col-auto">
+      <input type="date" class="form-control" name="end" value="{{ end }}">
+    </div>
+    <div class="col">
+      <input type="text" class="form-control" name="q" value="{{ q }}" placeholder="Bemor / shikoyat qidirish">
+    </div>
+    <div class="col-auto">
+      <button class="btn btn-primary">Ko'rsat</button>
+    </div>
+    <div class="col-auto">
+      <a class="btn btn-outline-secondary" href="?start={{ start }}&end={{ end }}&q={{ q }}&export=csv">CSV</a>
+    </div>
+    <div class="col-auto">
+      <a class="btn btn-outline-secondary" href="?start={{ start }}&end={{ end }}&q={{ q }}&export=pdf&dl=1" download>PDF</a>
+    </div>
+  </form>
+
+  <div class="card neo-card p-0">
+    <div class="table-responsive">
+      <table class="table table-striped table-hover mb-0">
+        <thead>
+          <tr>
+            <th>Sana</th>
+            <th>Vaqt</th>
+            <th>Bemor</th>
+            <th class="d-none d-sm-table-cell">Shikoyat</th>
+            <th class="text-end d-none d-md-table-cell">Narx</th>
+            <th class="d-none d-md-table-cell">Holat</th>
+            <th class="text-end">Amallar</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for a in items %}
+            <tr>
+              <td>{{ a.date }}</td>
+              <td>{{ a.time|time:'H:i' }}</td>
+              <td>{{ a.patient.full_name }}</td>
+              <td class="d-none d-sm-table-cell">{{ a.complaint.name|default:'-' }}</td>
+              <td class="text-end d-none d-md-table-cell">{{ a.service_price|default:'-' }}</td>
+              <td class="d-none d-md-table-cell">{{ a.get_status_display }}</td>
+              <td class="text-end">
+                <div class="d-inline-flex gap-2">
+                  <a class="pill-link" href="/appointments/receipt/{{ a.id }}/">Kvitansiya</a>
+                  {% if user.role == 'admin2' %}
+                    <a class="pill-link" href="/appointments/{{ a.id }}/set_price/">Narx belgilash</a>
+                  {% endif %}
+                  {% if user.role == 'admin3' and a.service_price and not a.payment %}
+                    <a class="pill-link" href="/payments/new/{{ a.id }}/">To'lov qabul qilish</a>
+                  {% endif %}
+                </div>
+              </td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="6" class="text-center py-3">Ma'lumot topilmadi</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{% endblock %}

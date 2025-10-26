@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+{% block title %}Kirish{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-5 col-lg-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h3 class="mb-0">Kirish</h3>
+    </div>
+    <form method="post" class="card neo-card card-body">
+      {% csrf_token %}
+      {% if form.non_field_errors %}
+        <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+      {% endif %}
+      <div class="mb-3">
+        <label class="form-label" for="id_username">Foydalanuvchi nomi</label>
+        {{ form.username }}
+        {{ form.username.errors }}
+      </div>
+      <div class="mb-3">
+        <label class="form-label" for="id_password">Parol</label>
+        {{ form.password }}
+        {{ form.password.errors }}
+      </div>
+      {% if next %}
+        <input type="hidden" name="next" value="{{ next }}">
+      {% endif %}
+      <button class="btn btn-primary w-100" type="submit">Kirish</button>
+    </form>
+  </div>
+  
+</div>
+{% endblock %}

@@ -1,0 +1,108 @@
+{% extends 'base.html' %}
+{% block title %}Statistika{% endblock %}
+{% block content %}
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h3 class="mb-0">Statistika</h3>
+    <span class="text-muted">30 kunlik va 1 haftalik ko‘rsatkichlar</span>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-12">
+      <div class="card shadow-sm h-100">
+        <div class="card-header bg-light fw-semibold">30 kunlik qabul soni (kunlik)</div>
+        <div class="card-body" style="height: 320px;">
+          <canvas id="last30Chart"></canvas>
+        </div>
+      </div>
+    </div>
+    <div class="col-12">
+      <div class="card shadow-sm h-100">
+        <div class="card-header bg-light fw-semibold">Bo‘limlar bo‘yicha tashriflar (30 kun)</div>
+        <div class="card-body" style="height: 320px;">
+          <canvas id="deptChart"></canvas>
+        </div>
+      </div>
+    </div>
+    <div class="col-12">
+      <div class="card shadow-sm">
+        <div class="card-header bg-light fw-semibold d-flex justify-content-between align-items-center">
+          <div>Admin 3 tasdiqlagan to'lovlar</div>
+          <form class="d-flex align-items-center" method="get" action="">
+            <input type="date" class="form-control form-control-sm me-2" name="pay_start" value="{{ pay_start }}">
+            <span class="me-2">—</span>
+            <input type="date" class="form-control form-control-sm me-2" name="pay_end" value="{{ pay_end }}">
+            <button class="btn btn-sm btn-primary me-2">Ko'rsat</button>
+            <a class="btn btn-sm btn-outline-secondary me-2" href="?pay_start={{ pay_start }}&pay_end={{ pay_end }}&export=csv" download>CSV</a>
+            <a class="btn btn-sm btn-outline-secondary" href="?pay_start={{ pay_start }}&pay_end={{ pay_end }}&export=pdf" download>PDF</a>
+          </form>
+        </div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-striped table-hover mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>Sana</th>
+                  <th>Bemor</th>
+                  <th>Shifokor</th>
+                  <th class="text-end">Miqdor</th>
+                  <th>Usul</th>
+                  <th>Kassir</th>
+                  <th>Kvitansiya</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for p in admin3_payments %}
+                  <tr>
+                    <td>{{ p.created_at|date:'Y-m-d H:i' }}</td>
+                    <td>{{ p.appointment.patient.full_name }}</td>
+                    <td>{{ p.appointment.doctor.full_name }}</td>
+                    <td class="text-end">{{ p.amount }}</td>
+                    <td>{{ p.get_method_display }}</td>
+                    <td>{{ p.cashier.username }}</td>
+                    <td><a class="pill-link" href="/payments/receipt/{{ p.id }}/" target="_blank">Ko'rish</a></td>
+                  </tr>
+                {% empty %}
+                  <tr><td colspan="7" class="text-center text-muted py-3">Ma'lumot topilmadi</td></tr>
+                {% endfor %}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <th colspan="3" class="text-end">Jami:</th>
+                  <th class="text-end">{{ admin3_total }}</th>
+                  <th colspan="3"></th>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script>
+    const baseOpts = {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: true, position: 'bottom' }, tooltip: { mode: 'index', intersect: false } },
+      interaction: { mode: 'nearest', intersect: false },
+      scales: { x: { grid: {display: false} }, y: { ticks: { precision: 0 } } }
+    };
+
+    const last30Labels = {{ last30_labels|safe }};
+    const last30Data = {{ last30_data|safe }};
+    new Chart(document.getElementById('last30Chart'), {
+      type: 'line',
+      data: { labels: last30Labels, datasets: [{ label: 'Qabul soni', data: last30Data, borderColor: '#0d6efd', backgroundColor: 'rgba(13,110,253,.15)', tension: .3, fill: true, pointRadius: 2 }] },
+      options: baseOpts
+    });
+
+    const deptLabels = {{ dept_labels|safe }};
+    const deptData = {{ dept_data|safe }};
+    new Chart(document.getElementById('deptChart'), {
+      type: 'pie',
+      data: { labels: deptLabels, datasets: [{ data: deptData, backgroundColor: ['#0d6efd', '#20c997', '#ffc107', '#6f42c1', '#198754', '#dc3545', '#0dcaf0', '#fd7e14'] }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+    });
+  </script>
+{% endblock %}

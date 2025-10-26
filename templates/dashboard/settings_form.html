@@ -1,0 +1,113 @@
+{% extends 'base.html' %}
+{% block title %}Sozlamalar{% endblock %}
+{% block content %}
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h3 class="mb-0">Klinika sozlamalari</h3>
+    <div class="d-flex gap-2">
+      <a class="btn btn-outline-primary" href="/admin/dashboard/users/">Foydalanuvchilar</a>
+      {% if user.role == 'admin' or user.is_superuser %}
+        <a class="btn btn-primary" href="/admin/dashboard/users/add/">Foydalanuvchi qo'shish</a>
+      {% endif %}
+    </div>
+  </div>
+  <form method="post" class="card neo-card card-body">
+    {% csrf_token %}
+    <div class="row g-3">
+      <div class="col-md-6">
+        <label class="form-label">{{ form.clinic_name.label }}</label>
+        {{ form.clinic_name }}
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">{{ form.clinic_phone.label }}</label>
+        {{ form.clinic_phone }}
+      </div>
+      <div class="col-md-12">
+        <label class="form-label">{{ form.clinic_address.label }}</label>
+        {{ form.clinic_address }}
+      </div>
+      <div class="col-md-12">
+        <label class="form-label">{{ form.receipt_footer.label }}</label>
+        {{ form.receipt_footer }}
+        <div class="form-text">Kvitansiya tagida ko‘rinadigan kichik izoh (ixtiyoriy).</div>
+      </div>
+    </div>
+    <div class="mt-3">
+      <button class="btn btn-primary">Saqlash</button>
+      <a class="btn btn-secondary" href="/">Bekor qilish</a>
+    </div>
+  </form>
+  <div class="card neo-card card-body mt-3">
+    <div class="fw-semibold">Per-shifokor kvitansiya kodi</div>
+    <div class="small text-muted">
+      Endi kvitansiya kodlari har bir shifokor kesimida yuritiladi (masalan: A001, B001).
+      Shifokor kartasida “Kvitansiya prefiksi” maydoni orqali belgilanadi.
+    </div>
+  </div>
+
+  <div class="card neo-card card-body mt-3">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <div class="fw-semibold">Kvitansiya sanog'ini noldan boshlash</div>
+      <div class="small text-muted">Faqat kerak bo'lganda foydalaning</div>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-hover table-compact mb-0">
+        <thead>
+          <tr>
+            <th>Shifokor</th>
+            <th>Bo'lim</th>
+            <th>Prefiks</th>
+            <th>Xona</th>
+            <th>Joriy sanoq</th>
+            <th class="text-end">Amal</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for d in doctors %}
+          <tr>
+            <td>{{ d.full_name }}</td>
+            <td style="max-width:220px">
+              <form method="post" action="/admin/dashboard/settings/" class="d-inline">
+                {% csrf_token %}
+                <input type="hidden" name="update_doctor_id" value="{{ d.id }}">
+                <input type="text" name="department" value="{{ d.department }}" class="form-control form-control-sm" style="width:200px;">
+            </td>
+            <td style="max-width:120px">
+                <form method="post" action="/admin/dashboard/settings/" class="d-inline">
+                {% csrf_token %}
+                <input type="hidden" name="update_doctor_id" value="{{ d.id }}">
+                <input type="text" name="code_prefix" value="{{ d.code_prefix }}" class="form-control form-control-sm" maxlength="2" style="width:70px;text-transform:uppercase;">
+            </td>
+            <td style="max-width:160px">
+                <input type="text" name="room_number" value="{{ d.room_number }}" class="form-control form-control-sm" style="width:120px;">
+            </td>
+            <td>{{ d.receipt_serial|stringformat:'03d' }}</td>
+            <td class="text-end">
+                <button class="btn btn-sm btn-primary me-1">Saqlash</button>
+              </form>
+              <form method="post" action="/admin/doctors/{{ d.id }}/reset_counter/" onsubmit="return confirm('Tasdiqlaysizmi?');" class="d-inline">
+                {% csrf_token %}
+                <button class="btn btn-sm btn-outline-danger">0 dan boshlash</button>
+              </form>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="6" class="text-center text-muted">Shifokorlar yo'q</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card neo-card card-body mt-3">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <div>
+        <div class="fw-semibold">Ma'lumotlar bazasini tozalash — Bemorlar</div>
+        <div class="small text-muted">Diqqat: bu amal barcha bemorlar, ular bilan bog'liq qabullar va to'lovlarni o'chiradi.</div>
+      </div>
+      <form method="post" action="/admin/dashboard/settings/clear-patients/" onsubmit="return confirm('Barcha bemorlar va bog\'liq ma\'lumotlar o\'chiriladi. Davom etasizmi?');">
+        {% csrf_token %}
+        <button class="btn btn-outline-danger">Bemorlar bazasini tozalash</button>
+      </form>
+    </div>
+  </div>
+{% endblock %}

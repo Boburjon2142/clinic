@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+{% block title %}{{ page_title|default:"Qabul ro'yxati" }}{% endblock %}
+{% block content %}
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h3 class="mb-0">{{ page_title|default:"Qabul ro'yxati" }}</h3>
+    <div class="d-flex gap-2" style="min-width: 360px;">
+      <input id="apptSearch" type="text" class="form-control" placeholder="Qidirish: bemor / shifokor / shikoyat">
+      <a class="btn btn-primary" href="/appointments/new/">Yangi qabul</a>
+    </div>
+  </div>
+
+  <div class="neo-card p-2">
+    <div class="table-responsive">
+      <table class="table table-striped table-hover table-compact table-sticky mb-0" id="appointmentsTable">
+        <thead>
+          <tr>
+            <th>Sana</th>
+            <th>Vaqt</th>
+            <th>Bemor</th>
+            <th class="d-none d-sm-table-cell">Shifokor</th>
+            <th class="d-none d-sm-table-cell">Shikoyat</th>
+            <th class="text-end">Amallar</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for a in appointments %}
+          <tr>
+            <td>{{ a.date }}</td>
+            <td>{{ a.time|time:'H:i' }}</td>
+            <td>{{ a.patient.full_name }}</td>
+            <td class="d-none d-sm-table-cell">{{ a.doctor.full_name }}</td>
+            <td class="d-none d-sm-table-cell">{{ a.complaint.name|default:'-' }}</td>
+            <td class="text-end">
+              <div class="d-inline-flex gap-2">
+                <span class="badge bg-light text-dark border">Narx: {{ a.service_price|default:'-' }}</span>
+                <a class="pill-link" href="/appointments/receipt/{{ a.id }}/">Kvitansiya</a>
+                {% if user.role == 'creator' or user.role == 'admin' or user.role == 'admin2' or user.is_superuser %}
+                  <a class="pill-link" href="/appointments/{{ a.id }}/set_price/">Narx belgilash</a>
+                {% endif %}
+                {% if user.role == 'creator' or user.role == 'admin' or user.role == 'admin3' or user.is_superuser %}
+                  {% if a.service_price and not a.payment %}
+                    <a class="pill-link" href="/payments/new/{{ a.id }}/">To'lov qabul qilish</a>
+                  {% endif %}
+                {% endif %}
+                {% if a.payment %}
+                  <a class="pill-link" href="/payments/receipt/{{ a.payment.id }}/">To'lov kvitansiya</a>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="6" class="text-center">Ma'lumot topilmadi</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    // Live filter for appointments
+    (function(){
+      const q = document.getElementById('apptSearch');
+      const rows = () => Array.from(document.querySelectorAll('#appointmentsTable tbody tr'));
+      if(!q) return;
+      q.addEventListener('input', function(){
+        const term = this.value.toLowerCase();
+        rows().forEach(tr => {
+          tr.style.display = tr.innerText.toLowerCase().includes(term) ? '' : 'none';
+        });
+      });
+    })();
+  </script>
+{% endblock %}

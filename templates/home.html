@@ -1,0 +1,90 @@
+{% extends 'base.html' %}
+{% block title %}{{ setting.clinic_name|default:'Klinika' }}{% endblock %}
+{% block content %}
+  <div class="py-3">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h2 class="mb-0">{% if setting %}{{ setting.clinic_name }}{% else %}Klinika tizimi{% endif %}</h2>
+      <div class="d-flex gap-2">
+        <a class="btn btn-primary" href="/appointments/new/">Yangi qabul</a>
+        <a class="btn btn-outline-secondary" href="/admin/dashboard/stats/">Statistika</a>
+      </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+      <div class="col-md-4">
+        <div class="card neo-card p-3 text-center">
+          <div class="small text-muted">Bemorlar</div>
+          <div class="display-6">{{ stats.patients }}</div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card neo-card p-3 text-center">
+          <div class="small text-muted">Shifokorlar</div>
+          <div class="display-6">{{ stats.doctors }}</div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card neo-card p-3 text-center">
+          <div class="small text-muted">Bugungi qabul</div>
+          <div class="display-6">{{ stats.today_appointments }}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-3">
+      <div class="col-lg-7">
+        <div class="card neo-card p-3">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <div class="fw-semibold">Oxirgi qabul(lar)</div>
+            <input id="homeSearch" type="text" class="form-control form-control-sm" placeholder="Qidirish: bemor/shifokor/shikoyat" style="max-width: 260px;">
+          </div>
+          <div class="table-responsive">
+            <table class="table table-striped table-hover table-compact mb-0" id="homeTable">
+              <thead>
+                <tr><th>Sana</th><th>Vaqt</th><th>Bemor</th><th>Shifokor</th><th>Shikoyat</th><th class="text-end">Kvitansiya</th></tr>
+              </thead>
+              <tbody>
+                {% for a in latest_appointments %}
+                <tr>
+                  <td>{{ a.date }}</td>
+                  <td>{{ a.time|time:'H:i' }}</td>
+                  <td>{{ a.patient.full_name }}</td>
+                  <td>{{ a.doctor.full_name }}</td>
+                  <td>{{ a.complaint.name|default:'-' }}</td>
+                  <td class="text-end"><a class="pill-link" href="/appointments/receipt/{{ a.id }}/">Kvitansiya</a></td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="text-center">Ma'lumot yo‘q</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-5">
+        <div class="card neo-card p-3 h-100">
+          <div class="fw-semibold mb-2">Tez amallar</div>
+          <div class="d-grid gap-2">
+            <a class="btn btn-primary" href="/appointments/new/">Qabulga yozish</a>
+            <a class="btn btn-outline-secondary" href="/admin/doctors/">Shifokorlar</a>
+            <a class="btn btn-outline-secondary" href="/admin/complaints/">Shikoyatlar</a>
+            <a class="btn btn-outline-secondary" href="/admin/dashboard/">Admin panel</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Quick search on latest appointments table
+    (function(){
+      const input = document.getElementById('homeSearch');
+      if(!input) return;
+      const rows = () => Array.from(document.querySelectorAll('#homeTable tbody tr'));
+      input.addEventListener('input', function(){
+        const q = this.value.toLowerCase();
+        rows().forEach(tr => tr.style.display = tr.innerText.toLowerCase().includes(q) ? '' : 'none');
+      });
+    })();
+  </script>
+{% endblock %}

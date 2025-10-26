@@ -1,0 +1,72 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Narx kvitansiyasi {{ doctor.code_prefix }}{{ appointment.doc_no|stringformat:"03d" }}</title>
+  <style>
+    @page { size: 80mm auto; margin: 4mm; }
+    body { font-family: 'DejaVu Sans', Arial, sans-serif; width: 68mm; margin: 0 auto; }
+    .center { text-align: center; }
+    .small { font-size: 12px; }
+    .muted { color: #555; }
+    .stars { text-align:center; font-size: 12px; margin: 4px 0; }
+    .sep { border: 0; border-top: 1px dashed #000; margin: 6px 0; }
+    .lr { display:flex; justify-content: space-between; font-size: 12px; }
+    .title { font-weight: 700; font-size: 16px; letter-spacing: 1px; margin-bottom: 4px; }
+    .block { margin: 4px 0; }
+    .print-toolbar { display: none; text-align: center; margin: 6px 0; }
+    .print-toolbar.show { display: block; }
+    @media print { .print-toolbar { display: none !important; } }
+  </style>
+  </head>
+<body>
+  <div class="print-toolbar" id="printToolbar">
+    <button type="button" id="btnPrint">Chop etish</button>
+    <button type="button" id="btnClose" style="margin-left:8px;">Oynani yopish</button>
+  </div>
+  <div class="center">
+    <div class="title">{{ setting.clinic_name|default:'KLINIKA'|upper }}</div>
+  </div>
+  <div class="stars">********************************</div>
+  <div class="small">
+    <div class="lr"><span>Hujjat:</span><span>{{ doctor.code_prefix }}{{ appointment.doc_no|stringformat:'03d' }}</span></div>
+    <div class="lr"><span>Sana:</span><span>{{ appointment.date }}</span></div>
+    <div class="lr"><span>Vaqt:</span><span>{{ appointment.time }}</span></div>
+  </div>
+  <hr class="sep">
+  <div class="block small">
+    <div class="lr"><span><strong>Bemor:</strong></span><span>{{ patient.full_name }}</span></div>
+    <div class="lr"><span><strong>Shifokor:</strong></span><span>{{ doctor.full_name }}</span></div>
+    {% if doctor.room_number %}
+      <div class="lr"><span><strong>Xona:</strong></span><span>{{ doctor.room_number }}</span></div>
+    {% endif %}
+    {% if appointment.complaint %}
+      <div class="lr"><span><strong>Shikoyat:</strong></span><span>{{ appointment.complaint.name }}</span></div>
+    {% endif %}
+  </div>
+  <hr class="sep">
+  <div class="block small">
+    <div class="lr"><span><strong>Narx:</strong></span><span><strong>{{ appointment.service_price|default:'-' }}</strong></span></div>
+  </div>
+  <div class="stars">********************************</div>
+  <div class="center small muted">{% if setting and setting.receipt_footer %}{{ setting.receipt_footer }}{% else %}Rahmat!{% endif %}</div>
+
+  <script>
+    (function(){
+      var toolbar = document.getElementById('printToolbar');
+      var btnPrint = document.getElementById('btnPrint');
+      var btnClose = document.getElementById('btnClose');
+      function showToolbar(){ if (toolbar) toolbar.classList.add('show'); }
+      function tryCloseAll(){ try{ window.close(); }catch(e){} try{ if (window.opener) window.opener.postMessage({type:'receiptPrinted'}, '*'); }catch(e){} }
+      function doPrint(){ try{ window.focus(); }catch(e){} try{ window.print(); if (typeof auto!=='undefined' && auto){ tryCloseAll(); setTimeout(tryCloseAll,800);} }catch(e){ showToolbar(); } }
+      if (btnPrint) btnPrint.addEventListener('click', doPrint);
+      if (btnClose) btnClose.addEventListener('click', function(){ tryCloseAll(); });
+      var printed=false; if ('onafterprint' in window){ window.onafterprint=function(){ printed=true; tryCloseAll(); }; }
+      window.addEventListener('focus', function(){ if (typeof auto!=='undefined' && auto && !printed) tryCloseAll(); });
+      var auto = {% if auto_print %}true{% else %}false{% endif %};
+      if (auto) { setTimeout(function(){ doPrint(); setTimeout(function(){ if(!printed) showToolbar(); }, 800); }, 200); } else { showToolbar(); }
+    })();
+  </script>
+</body>
+</html>
+

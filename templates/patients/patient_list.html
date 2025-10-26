@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% block title %}Bemorlar{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h3>Bemorlar</h3>
+  <a class="btn btn-primary" href="/patients/new/">Yangi bemor</a>
+  </div>
+<div class="table-responsive">
+  <table class="table table-striped">
+    <thead>
+      <tr><th>FIO</th><th>Telefon</th><th>Manzil</th><th>Tug'ilgan sana</th></tr>
+    </thead>
+    <tbody>
+      {% for p in patients %}
+      <tr>
+        <td>{{ p.full_name }}</td>
+        <td>{{ p.phone }}</td>
+        <td>{{ p.address }}</td>
+        <td>{{ p.birth_date|default:'-' }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="4" class="text-center">Ma'lumot yo'q</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+{% endblock %}
+

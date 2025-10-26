@@ -1,0 +1,94 @@
+﻿{% extends 'base.html' %}
+{% block title %}Statistika{% endblock %}
+{% block content %}
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h3 class="mb-0">Statistika</h3>
+    <span class="text-muted">30 kunlik va 1 haftalik koвЂrsatkichlar</span>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-lg-6">
+      <div class="card shadow-sm h-100">
+        <div class="card-header bg-light fw-semibold">30 kunlik qabul soni (kunlik)</div>
+        <div class="card-body" style="height: 320px;">
+          <canvas id="last30Chart"></canvas>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-6">
+      <div class="card shadow-sm h-100">
+        <div class="card-header bg-light fw-semibold">BoвЂlimlar boвЂyicha tashriflar (30 kun)</div>
+        <div class="card-body" style="height: 320px;">
+          <canvas id="deptChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-12">
+      <div class="card shadow-sm h-100">
+        <div class="card-header bg-light fw-semibold">1 hafta davomida bemorlar (noyob, kunlik)</div>
+        <div class="card-body" style="height: 420px;">
+          <canvas id="weekPatientsChart"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script>
+    const baseOpts = {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: true, position: 'bottom' },
+        tooltip: { mode: 'index', intersect: false }
+      },
+      interaction: { mode: 'nearest', intersect: false },
+      scales: { x: { grid: {display: false} }, y: { ticks: { precision: 0 } } }
+    };
+
+    const last30Labels = {{ last30_labels|safe }};
+    const last30Data = {{ last30_data|safe }};
+    new Chart(document.getElementById('last30Chart'), {
+      type: 'line',
+      data: { labels: last30Labels, datasets: [{ label: 'Qabul soni', data: last30Data, borderColor: '#0d6efd', backgroundColor: 'rgba(13,110,253,.15)', tension: .3, fill: true, pointRadius: 2 }] },
+      options: baseOpts
+    });
+
+    const deptLabels = {{ dept_labels|safe }};
+    const deptData = {{ dept_data|safe }};
+    new Chart(document.getElementById('deptChart'), {
+      type: 'pie',
+      data: { labels: deptLabels, datasets: [{ data: deptData, backgroundColor: ['#0d6efd', '#20c997', '#ffc107', '#6f42c1', '#198754', '#dc3545', '#0dcaf0', '#fd7e14'] }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+    });
+
+    const weekLabels = {{ week_labels|safe }};
+    const weekData = {{ week_data|safe }};
+    new Chart(document.getElementById('weekPatientsChart'), {
+      type: 'bar',
+      data: {
+        labels: weekLabels,
+        datasets: [{
+          label: 'Noyob bemorlar',
+          data: weekData,
+          backgroundColor: 'rgba(255,193,7,0.95)',
+          borderColor: '#e0aa00',
+          borderWidth: 1,
+          barThickness: 36,
+          maxBarThickness: 48,
+          categoryPercentage: 0.9,
+          barPercentage: 0.9,
+          borderRadius: 6,
+        }]
+      },
+      options: {
+        ...baseOpts,
+        scales: {
+          x: { grid: { display: false } },
+          y: { ticks: { precision: 0 } }
+        }
+      }
+    });
+  </script>
+{% endblock %}

@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+{% block title %}Shifokorlar{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h3>Shifokorlar</h3>
+  {% if user.role == 'creator' %}
+    <a class="btn btn-primary" href="/admin/doctors/new/">Yangi shifokor</a>
+  {% endif %}
+  </div>
+
+<form class="row g-2 mb-3" method="get">
+  <div class="col-sm-4"><input class="form-control" type="text" name="q" value="{{ q }}" placeholder="Qidirish: ism, bo'lim, telefon"></div>
+  <div class="col-auto"><button class="btn btn-outline-secondary">Qidirish</button></div>
+  {% if q %}<div class="col-auto"><a class="btn btn-link" href="/admin/doctors/">Tozalash</a></div>{% endif %}
+  <div class="col text-end align-self-center">Jami: <strong>{{ doctors|length }}</strong></div>
+  </form>
+
+<div class="table-responsive">
+  <table class="table table-striped align-middle">
+    <thead>
+      <tr>
+        <th>FIO</th>
+        <th>Bo'lim</th>
+        <th>Telefon</th>
+        <th>Xona</th>
+        <th class="text-center">Bugun</th>
+        <th class="text-center">Jami</th>
+        <th class="text-end">Amallar</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for d in doctors %}
+      <tr>
+        <td>{{ d.full_name }}</td>
+        <td>{{ d.department }}</td>
+        <td>{{ d.phone }}</td>
+        <td>{{ d.room_number }}</td>
+        <td class="text-center">{{ d.appt_today|default:0 }}</td>
+        <td class="text-center">{{ d.appt_total|default:0 }}</td>
+        <td class="text-end">
+          <a class="btn btn-sm btn-outline-secondary" href="/admin/doctors/{{ d.id }}/appointments/">Qabullar</a>
+          {% if user.role == 'creator' %}
+            <a class="btn btn-sm btn-outline-primary" href="/admin/doctors/{{ d.id }}/edit/">Tahrirlash</a>
+            <a class="btn btn-sm btn-outline-danger" href="/admin/doctors/{{ d.id }}/delete/">O'chirish</a>
+          {% endif %}
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5" class="text-center">Hozircha ma'lumot yo'q</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+{% endblock %}

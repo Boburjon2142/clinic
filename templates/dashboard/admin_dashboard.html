@@ -1,0 +1,124 @@
+{% extends 'base.html' %}
+{% block title %}Admin Panel{% endblock %}
+{% block content %}
+  <h3 class="mb-3">Umumiy statistika</h3>
+  <div class="row g-3 mb-4">
+    <div class="col-md-4">
+      <div class="card neo-card kpi kpi-blue">
+        <div class="card-body">
+          <div class="h5">Shifokorlar</div>
+          <div class="display-6">{{ doctors_count }}</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card neo-card kpi kpi-green">
+        <div class="card-body">
+          <div class="h5">Bemorlar</div>
+          <div class="display-6">{{ patients_count }}</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card neo-card kpi kpi-yellow">
+        <div class="card-body">
+          <div class="h5">Tanlangan oraliqdagi qabul</div>
+          <div class="display-6">{{ todays_appointments }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h5>Bugungi qabul statistikasi</h5>
+  <div class="neo-card p-3">
+    <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+      <div class="fw-semibold">Qabul statistikasi ({{ start_date }} — {{ end_date }})</div>
+      <form class="d-flex gap-2" method="get">
+        <input type="date" class="form-control form-control-sm" name="start" value="{{ start_date }}">
+        <input type="date" class="form-control form-control-sm" name="end" value="{{ end_date }}">
+        <button class="btn btn-sm btn-primary">Qo‘llash</button>
+        <a class="btn btn-sm btn-outline-secondary" href="?">Tozalash</a>
+      </form>
+      <div class="d-flex gap-2 ms-auto">
+        <input id="docSearch" type="text" class="form-control form-control-sm" placeholder="Qidirish: shifokor/bo'lim">
+        <button class="btn btn-sm btn-outline-secondary" id="exportCsv">CSV</button>
+      </div>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-striped table-hover table-sm mb-0 table-compact table-sticky" id="perDoctorTable">
+        <colgroup>
+          <col style="width:45%">
+          <col style="width:35%">
+          <col style="width:20%">
+        </colgroup>
+        <thead class="align-middle">
+          <tr>
+            <th class="text-uppercase small text-muted">Shifokor</th>
+            <th class="text-uppercase small text-muted">Bo'lim</th>
+            <th class="text-uppercase small text-muted text-end sorter" data-sort="count">Qabul soni ▾▴</th>
+          </tr>
+        </thead>
+        <tbody class="align-middle">
+          {% for row in per_doctor %}
+          <tr>
+            <td>{{ row.doctor__full_name }}</td>
+            <td>{{ row.doctor__department }}</td>
+            <td class="text-end fw-semibold">{{ row.total }}</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="3" class="text-center">Ma'lumot yo'q</td></tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr>
+            <th colspan="2" class="text-end">Jami</th>
+            <th class="text-end">{{ total_today }}</th>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    // Filter
+    const inp = document.getElementById('docSearch');
+    const table = document.getElementById('perDoctorTable');
+    inp && inp.addEventListener('input', function(){
+      const q = this.value.toLowerCase();
+      table.querySelectorAll('tbody tr').forEach(tr => {
+        const txt = tr.innerText.toLowerCase();
+        tr.style.display = txt.includes(q) ? '' : 'none';
+      });
+    });
+    // Export CSV
+    document.getElementById('exportCsv')?.addEventListener('click', function(){
+      const rows = [];
+      rows.push(['Shifokor','Bo\'lim','Qabul soni'].join(','));
+      table.querySelectorAll('tbody tr').forEach(tr => {
+        const tds = tr.querySelectorAll('td');
+        rows.push([tds[0].nextElementSibling.nextElementSibling.innerText, tds[1].innerText, tds[2].innerText].join(','));
+      });
+      rows.push(["Jami",'',document.querySelector('tfoot th.text-end').innerText].join(','));
+      const csv = rows.join('\n');
+      const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'per_doctor_today.csv'; a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    // Sort by count
+    document.querySelector('.sorter')?.addEventListener('click', function(){
+      const rows = Array.from(table.querySelectorAll('tbody tr'));
+      const asc = this.dataset.order !== 'asc';
+      rows.sort((a,b)=>{
+        const av = parseInt(a.querySelector('td:last-child').innerText.trim())||0;
+        const bv = parseInt(b.querySelector('td:last-child').innerText.trim())||0;
+        return asc ? av-bv : bv-av;
+      });
+      const tbody = table.querySelector('tbody');
+      rows.forEach(r=>tbody.appendChild(r));
+      this.dataset.order = asc ? 'asc' : 'desc';
+    });
+  </script>
+{% endblock %}

@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Profil{% endblock %}
+{% block content %}
+<div class="row g-3">
+  <div class="col-lg-6">
+    <div class="card neo-card card-body">
+      <h5 class="mb-3">Profil ma'lumotlari</h5>
+      <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="mb-2">
+          <label class="form-label">Foydalanuvchi</label>
+          <input class="form-control" value="{{ request.user.username }}" disabled>
+        </div>
+        <div class="d-flex align-items-center gap-3 mb-3">
+          <img src="{% if request.user.avatar_url %}{{ request.user.avatar_url }}{% else %}{% static 'img/user.svg' %}{% endif %}"
+               class="avatar avatar-64" alt="Avatar">
+          <div class="flex-grow-1">
+            <label class="form-label">Rasm (ixtiyoriy)</label>
+            {{ form.avatar }}
+            {{ form.avatar.errors }}
+            <div class="form-text">PNG/JPG tavsiya etiladi.</div>
+          </div>
+        </div>
+        <div class="row g-2">
+          <div class="col-md-6">{{ form.first_name.label_tag }} {{ form.first_name }}</div>
+          <div class="col-md-6">{{ form.last_name.label_tag }} {{ form.last_name }}</div>
+          <div class="col-md-12">{{ form.email.label_tag }} {{ form.email }}</div>
+        </div>
+        <button class="btn btn-primary">Saqlash</button>
+        <a class="btn btn-outline-secondary" href="/accounts/password_change/">Parolni o'zgartirish</a>
+      </form>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card neo-card card-body">
+      <h5>Hisob</h5>
+      <p class="mb-1">Rol: <strong>{{ request.user.role }}</strong></p>
+      <p class="mb-1">Holat: <strong>{% if request.user.is_active %}Faol{% else %}Bloklangan{% endif %}</strong></p>
+      <a class="btn btn-danger" href="/accounts/logout/">Chiqish</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

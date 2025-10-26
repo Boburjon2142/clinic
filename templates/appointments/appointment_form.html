@@ -1,0 +1,132 @@
+{% extends 'base.html' %}
+{% block title %}Qabul yaratish{% endblock %}
+{% block content %}
+  <h3 class="mb-3">Qabulga yozish</h3>
+  <form method="post" class="card neo-card card-body" autocomplete="off">
+    {% csrf_token %}
+    <div class="row g-3">
+      <div class="col-md-7">
+        <div class="mb-2">
+          <label class="form-label">Shifokor</label>
+          <input type="text" id="doctorFilter" name="doctor_filter" class="form-control mb-1" placeholder="Shifokor qidirish..." autocomplete="off" autocapitalize="off" spellcheck="false">
+          {{ form.doctor }}
+          <div class="form-text">Qidiruv maydonida yozib, quyidagi roʻyxatni filtrlashingiz mumkin.</div>
+        </div>
+
+        <div class="mb-2">
+          <label class="form-label">{{ form.complaint.label }}</label>
+          {{ form.complaint }}
+          {% if user.role == 'creator' or user.is_superuser %}
+            <div class="form-text"><a href="/admin/complaints/new/" target="_blank">Yangi shikoyat qoʻshish</a></div>
+          {% endif %}
+        </div>
+
+        <div class="mb-2">
+          <label class="form-label">{{ form.patient_name.label }}</label>
+          {{ form.patient_name }}
+          <datalist id="patients_suggest">
+            {% for name in patient_suggestions %}
+              <option value="{{ name }}"></option>
+            {% endfor %}
+          </datalist>
+          <div class="form-text">Sana va vaqt avtomatik belgilanadi.</div>
+        </div>
+      </div>
+      <div class="col-md-5">
+        <div class="card neo-card p-3 h-100">
+          <div class="small text-muted">Tez koʻrinish</div>
+          <div class="mt-2">
+            <div><span class="text-muted">Bugun:</span> <strong id="todayDate"></strong></div>
+            <div><span class="text-muted">Vaqt:</span> <strong id="nowTime"></strong></div>
+          </div>
+          <hr>
+          <button class="btn btn-primary w-100">Saqlash</button>
+          <a class="btn btn-secondary w-100 mt-2" href="/appointments/">Bekor qilish</a>
+        </div>
+      </div>
+    </div>
+  </form>
+
+  <script>
+    // Fill current date/time
+    (function(){
+      const d = new Date();
+      const pad = (n)=> String(n).padStart(2,'0');
+      const dateTxt = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+      const timeTxt = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      document.getElementById('todayDate').textContent = dateTxt;
+      document.getElementById('nowTime').textContent = timeTxt;
+    })();
+
+    // Doctor filter
+    (function(){
+      const f = document.getElementById('doctorFilter');
+      const select = document.getElementById('id_doctor');
+      if (!f || !select) return;
+      const all = Array.from(select.options).map(o => ({text:o.text.toLowerCase(), value:o.value}));
+      function apply(){
+        const q = f.value.toLowerCase();
+        select.innerHTML = '';
+        all.forEach(o=>{
+          if(!q || o.text.includes(q)){
+            const opt=document.createElement('option');
+            opt.value=o.value; opt.textContent=o.text; select.appendChild(opt);
+          }
+        });
+      }
+      f.addEventListener('input', apply);
+    })();
+
+    // Submit on Enter and print receipt in popup
+    (function(){
+      const form = document.querySelector('form');
+      if (!form) return;
+      let submitting = false;
+      let receiptWin = null;
+      // Listen for a signal from the receipt page to close the popup
+      window.addEventListener('message', function(e){
+        try {
+          const d = e && e.data;
+          if (d && d.type === 'receiptPrinted') {
+            if (receiptWin && !receiptWin.closed) { try { receiptWin.close(); } catch (err) {} }
+            // Redirect parent to home after printing
+            try { window.location.href = '/'; } catch (err) {}
+          }
+        } catch (err) {}
+      });
+      // Ensure any submit (button click or Enter) targets the popup
+      form.addEventListener('submit', function(e){
+        // Basic guard to avoid opening popup on invalid minimal fields
+        const doctor = document.getElementById('id_doctor');
+        const patient = document.getElementById('id_patient_name');
+        if (!doctor || !doctor.value || !patient || !patient.value.trim()) return; // let server handle validation
+        try {
+          receiptWin = window.open('', 'printReceipt', 'width=520,height=800');
+          form.setAttribute('target', 'printReceipt');
+        } catch (err) {}
+        // Reset target after navigation completes
+        setTimeout(function(){ form.removeAttribute('target'); }, 1500);
+      });
+      form.addEventListener('keydown', function(e){
+        if (e.key !== 'Enter') return;
+        const tag = (e.target && e.target.tagName) ? e.target.tagName.toLowerCase() : '';
+        if (tag === 'textarea') return; // allow newline in textarea if any
+        e.preventDefault();
+        if (submitting) return;
+        // Require minimal fields before submitting to popup
+        const doctor = document.getElementById('id_doctor');
+        const patient = document.getElementById('id_patient_name');
+        if (!doctor || !doctor.value || !patient || !patient.value.trim()) return;
+        submitting = true;
+        try {
+          receiptWin = window.open('', 'printReceipt', 'width=520,height=800');
+          form.setAttribute('target', 'printReceipt');
+        } catch (err) {}
+        form.submit();
+        // Restore target shortly after to avoid affecting future submits
+        setTimeout(function(){ form.removeAttribute('target'); submitting = false; }, 1000);
+      });
+    })();
+  </script>
+{% endblock %}
+

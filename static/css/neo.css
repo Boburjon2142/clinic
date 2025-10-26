@@ -1,0 +1,127 @@
+:root{
+  --bg:#e9eef5;
+  --fg:#1f2d3d;
+  --surface:#eef2f7;
+  --highlight:#ffffff;
+  --shadow:#c8d0e7;
+  --primary:#0d6efd;
+}
+
+/* Layout: center main content and stick footer to bottom */
+html, body { height: 100%; }
+body.neo-bg{
+  background:var(--bg);
+  color:var(--fg);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.neo-nav{
+  background: var(--surface) !important;
+  border-radius: 14px;
+  margin: 12px auto 0;
+  max-width: 1200px;
+  padding: 6px 10px;
+  box-shadow: 8px 8px 16px var(--shadow), -8px -8px 16px var(--highlight);
+}
+.neo-nav .nav-link,.neo-nav .navbar-brand{color:#2b3440 !important}
+.neo-nav .nav-link:hover{color:var(--primary)!important}
+
+main.neo-section{ flex: 1 0 auto; }
+.neo-section{ max-width: 1200px; margin: 0 auto; }
+
+.card, .neo-card{
+  background: var(--surface);
+  border: none;
+  border-radius: 14px;
+  box-shadow: 9px 9px 18px var(--shadow), -9px -9px 18px var(--highlight);
+}
+.card, .neo-card { overflow: visible; }
+.card-header{
+  background: transparent;
+  border-bottom: 1px solid rgba(0,0,0,.04);
+}
+
+.btn{
+  border: none;
+  border-radius: 12px;
+  box-shadow: 4px 4px 8px var(--shadow), -4px -4px 8px var(--highlight);
+}
+.btn:active{ box-shadow: inset 4px 4px 8px var(--shadow), inset -4px -4px 8px var(--highlight); }
+
+.form-control, .form-select{
+  background: var(--surface);
+  border: none;
+  border-radius: 12px;
+  box-shadow: inset 4px 4px 8px var(--shadow), inset -4px -4px 8px var(--highlight);
+  text-align: center; /* inputs text centered */
+}
+/* Center placeholder text inside inputs */
+.form-control::placeholder { text-align: center; opacity:.7; }
+/* Ensure select shows selected value centered across browsers */
+.form-select{ text-align-last: center; }
+@supports (-moz-appearance:none) {
+  .form-select{ -moz-text-align-last: center; }
+}
+.form-control:focus, .form-select:focus{
+  outline: none;
+  box-shadow: inset 3px 3px 6px var(--shadow), inset -3px -3px 6px var(--highlight), 0 0 0 .15rem rgba(13,110,253,.15);
+}
+
+.table{ background: var(--surface); border-radius: 12px; overflow: hidden; }
+/* Allow dropdowns inside tables to overflow properly where needed */
+.table.allow-overflow{ overflow: visible; }
+.table.allow-overflow .dropdown, .table.allow-overflow .btn-group{ position: static; }
+.table.allow-overflow .dropdown-menu{ z-index: 1060; }
+/* Utility to force visible overflow on wrappers (e.g., .table-responsive) */
+.allow-overflow{ overflow: visible !important; }
+.table thead th{ border-bottom-color: rgba(0,0,0,.05); }
+.table-striped>tbody>tr:nth-of-type(odd){ --bs-table-accent-bg: rgba(0,0,0,.015); }
+.table-hover tbody tr:hover{ background: rgba(13,110,253,.05); }
+.table-compact td, .table-compact th{ padding:.45rem .5rem; }
+.table-sticky thead th{ position: sticky; top: 0; background: var(--surface); z-index: 1; }
+.monospace{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+
+/* KPI gradient cards */
+.kpi{ color:#fff; border:none; }
+.kpi .card-body{ padding: 1.25rem 1.5rem; }
+.kpi-blue{ background: linear-gradient(145deg,#0d6efd,#1d4ed8); }
+.kpi-green{ background: linear-gradient(145deg,#198754,#127a45); }
+.kpi-yellow{ background: linear-gradient(145deg,#ffc107,#e0a800); color:#1f2d3d; }
+
+.alert{ border: none; }
+
+/* Doctor queue columns */
+.queue-column .card{ min-height: 320px; }
+
+/* Soft badge + pill link */
+.badge-soft{ background: rgba(13,110,253,.08); color:#0d6efd; padding:.25rem .6rem; border-radius: 999px; font-weight: 500; text-align:center; display:inline-flex; align-items:center; justify-content:center; }
+.pill-link{ padding:.3rem .75rem; border-radius: 999px; background: var(--surface); text-decoration: none; box-shadow: 4px 4px 8px var(--shadow), -4px -4px 8px var(--highlight); text-align:center; display:inline-flex; align-items:center; justify-content:center; }
+.pill-link:hover{ text-decoration: none; background: #fff; }
+.stats-hide-cards{ display:none !important; }
+.stats-hide-cards .card-body > .row.g-3{ display:none; }
+
+/* Footer */
+.site-footer{ background: var(--surface); box-shadow: 8px 8px 16px var(--shadow), -8px -8px 16px var(--highlight); margin-top: auto; width:100%; }
+.site-footer .container{ max-width: 1200px; }
+
+/* Table cell vertical centering */
+.table td, .table th{ vertical-align: middle; }
+
+/* Avatars */
+.avatar{ border-radius: 50%; object-fit: cover; display:inline-block; background:#fff; box-shadow: 2px 2px 4px var(--shadow), -2px -2px 4px var(--highlight); }
+.avatar-32{ width:32px; height:32px; }
+.avatar-64{ width:32px; height:32px; }
+
+/* Mobile tweaks */
+@media (max-width: 576px){
+  .neo-nav{ margin: 8px; max-width: 100%; border-radius: 10px; }
+  main.neo-section{ padding-left: 8px; padding-right: 8px; }
+  h3{ font-size: 1.25rem; }
+  .table{ font-size: 14px; }
+  .btn{ padding: .5rem .75rem; }
+  .card, .neo-card{ box-shadow: 6px 6px 12px var(--shadow), -6px -6px 12px var(--highlight); }
+  /* make action buttons wrap nicely */
+  .pill-link{ padding:.35rem .65rem; }
+}

@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block title %}Yangi shifokor{% endblock %}
+{% block content %}
+  <h3 class="mb-3">Yangi shifokor qo'shish</h3>
+  <form method="post" class="card card-body">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <div class="mt-2">
+      <button class="btn btn-primary">Saqlash</button>
+      <a class="btn btn-secondary" href="/admin/doctors/">Bekor qilish</a>
+    </div>
+  </form>
+  {# Sanoqni noldan boshlash tugmasi sozlamalar bo'limiga ko'chirildi #}
+{% endblock %}

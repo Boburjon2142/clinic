@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+{% block title %}Shifokorni o'chirish{% endblock %}
+{% block content %}
+  <h3 class="mb-3">Shifokorni o'chirish</h3>
+  <div class="alert alert-warning">Haqiqatan ham "{{ doctor.full_name }}" yozuvini o'chirmoqchimisiz?</div>
+  <form method="post" class="mt-2">
+    {% csrf_token %}
+    <button class="btn btn-danger">Ha, o'chirish</button>
+    <a class="btn btn-secondary" href="/admin/doctors/">Bekor qilish</a>
+  </form>
+{% endblock %}
+

@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% block title %}Xizmat narxi{% endblock %}
+{% block content %}
+  <h3 class="mb-3">Xizmat narxini belgilash — {{ appointment.patient.full_name }} ({{ appointment.doctor.full_name }})</h3>
+  <div class="d-flex justify-content-center">
+  <form method="post" class="card card-body" style="max-width: 520px;">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <div class="mt-2">
+      <button class="btn btn-primary">Saqlash</button>
+      <a class="btn btn-secondary" href="/appointments/">Bekor qilish</a>
+    </div>
+  </form>
+  </div>
+{% endblock %}

@@ -1,0 +1,94 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Kvitansiya {{ doctor.code_prefix }}{{ appointment.doc_no|stringformat:"03d" }}</title>
+  <style>
+    @page { size: 80mm auto; margin: 5mm; }
+    body { font-family: Arial, sans-serif; width: 68mm; margin: 0 auto; }
+    .center { text-align: center; }
+    .small { font-size: 12px; }
+    .muted { color: #555; }
+    hr { border: 0; border-top: 1px dashed #000; margin: 6px 0; }
+    .row { display: flex; justify-content: space-between; }
+  </style>
+</head>
+<body>
+  <div class="print-toolbar" id="printToolbar" style="display:none;text-align:center;margin:6px 0;">
+    <button type="button" id="btnPrint">Chop etish</button>
+    <button type="button" id="btnClose" style="margin-left:8px;">Oynani yopish</button>
+  </div>
+  <div class="center">
+    <strong>{{ setting.clinic_name|default:'Klinika' }}</strong><br>
+    <span class="small">{{ setting.clinic_address|default:'' }}</span><br>
+    <span class="small">Tel: {{ setting.clinic_phone|default:'' }}</span>
+  </div>
+  <hr>
+  <div class="small">
+    <div class="row"><span>Kvitansiya №:</span><span><strong>{{ doctor.code_prefix }}{{ appointment.doc_no|stringformat:"03d" }}</strong></span></div>
+    <div class="row"><span>Sana:</span><span>{{ payment.created_at|date:'Y-m-d H:i' }}</span></div>
+  </div>
+  <hr>
+  <div class="small">
+    <div class="row"><span><strong>Bemor:</strong></span><span>{{ patient.full_name }}</span></div>
+    <div class="row"><span><strong>Shifokor:</strong></span><span>{{ doctor.full_name }}</span></div>
+    {% if appointment.complaint %}
+      <div class="row"><span><strong>Shikoyat:</strong></span><span>{{ appointment.complaint.name }}</span></div>
+    {% endif %}
+  </div>
+  <hr>
+  <div class="small">
+    <div class="row"><span>To'lov usuli:</span><span>{{ payment.get_method_display }}</span></div>
+    <div class="row"><span>Miqdor:</span><span><strong>{{ payment.amount }} so'm</strong></span></div>
+  </div>
+  <hr>
+  <div class="center small muted">
+    Kassir: {{ payment.cashier.username }}
+    {% if setting.receipt_footer %}<br>{{ setting.receipt_footer }}{% endif %}
+  </div>
+  <script>
+    (function(){
+      function tryCloseAll(){
+        try{ window.close(); }catch(e){}
+        try { if (window.opener) window.opener.postMessage({type:'receiptPrinted'}, '*'); } catch (e) {}
+        try { if (window.opener) window.opener.location.href = '/'; } catch (e) {}
+      }
+      var toolbar = document.getElementById('printToolbar');
+      var btnPrint = document.getElementById('btnPrint');
+      var btnClose = document.getElementById('btnClose');
+      function showToolbar(){ if (toolbar) toolbar.style.display='block'; }
+      function doPrint(){
+        try{ window.focus(); }catch(e){}
+        try{
+          window.print();
+          if (typeof auto !== 'undefined' && auto) {
+            tryCloseAll();
+            setTimeout(tryCloseAll, 800);
+            setTimeout(tryCloseAll, 1600);
+          }
+        }catch(e){ showToolbar(); }
+      }
+      if (btnPrint) btnPrint.addEventListener('click', doPrint);
+      if (btnClose) btnClose.addEventListener('click', function(){ tryCloseAll(); });
+      var printed=false;
+      if ('onafterprint' in window) {
+        window.onafterprint=function(){ printed=true; tryCloseAll(); };
+      }
+      try{
+        var mql = window.matchMedia('print');
+        var onChange=function(ev){ if(!ev.matches && typeof auto!=='undefined' && auto){ tryCloseAll(); } };
+        if(mql && mql.addEventListener) mql.addEventListener('change', onChange);
+        else if(mql && mql.addListener) mql.addListener(onChange);
+      }catch(e){}
+      window.addEventListener('focus', function(){ if(typeof auto!=='undefined' && auto && !printed){ tryCloseAll(); } });
+      document.addEventListener('visibilitychange', function(){ if(document.visibilityState==='visible' && typeof auto!=='undefined' && auto){ tryCloseAll(); } });
+      var auto = {% if auto_print %}true{% else %}false{% endif %};
+      if (auto) {
+        setTimeout(function(){ doPrint(); setTimeout(function(){ if(!printed) showToolbar(); }, 800); }, 200);
+      } else {
+        showToolbar();
+      }
+    })();
+  </script>
+</body>
+</html>
