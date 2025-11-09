@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+{% block title %}Bemorlar bazasini tozalash{% endblock %}
+{% block content %}
+  <h3 class="mb-3 text-danger">Ogohlantirish: Bemorlar bazasini tozalash</h3>
+  <div class="card neo-card p-3 mb-3">
+    <p class="mb-1">Quyidagi ma'lumotlar o'chiriladi:</p>
+    <ul class="mb-2">
+      <li>Bemorlar: <strong>{{ total_patients }}</strong></li>
+      <li>Qabullar: <strong>{{ total_appointments }}</strong></li>
+      <li>To'lovlar (kvitansiyalar): <strong>{{ total_payments }}</strong></li>
+    </ul>
+    <p class="mb-1">Saqlanib qoladigan ma'lumotlar:</p>
+    <ul>
+      <li>Xarajat so'rovlari: <strong>{{ total_expenses }}</strong></li>
+    </ul>
+    <div class="alert alert-warning">
+      Amal ortga qaytarib bo'lmaydi. Davom etishni xohlaysizmi?
+    </div>
+    <form method="post">
+      {% csrf_token %}
+      <button class="btn btn-danger">Ha, tozalash</button>
+      <a class="btn btn-secondary" href="/admin/dashboard/settings/">Bekor qilish</a>
+    </form>
+  </div>
+{% endblock %}
+

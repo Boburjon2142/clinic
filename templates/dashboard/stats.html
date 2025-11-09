@@ -9,6 +9,58 @@
   <div class="row g-4">
     <div class="col-12">
       <div class="card shadow-sm h-100">
+        <div class="card-header bg-light fw-semibold d-flex justify-content-between align-items-center">
+          <div>Tushum va xarajatlar (kumulative)</div>
+          <form class="d-flex align-items-center" method="get" action="">
+            <input type="date" class="form-control form-control-sm me-2" name="fin_start" value="{{ fin_start }}">
+            <span class="me-2">—</span>
+            <input type="date" class="form-control form-control-sm me-2" name="fin_end" value="{{ fin_end }}">
+            <button class="btn btn-sm btn-primary me-2">Ko'rsat</button>
+            <a class="btn btn-sm btn-outline-secondary" href="?fin_start={{ fin_start }}&fin_end={{ fin_end }}&fin_export=pdf" download>PDF</a>
+          </form>
+        </div>
+        <div class="card-body" style="height: 320px;">
+          <canvas id="financeChart"></canvas>
+        </div>
+        <div class="card-footer d-flex gap-3 small">
+          <span><strong>Jami tushum:</strong> {{ finance_rev_total }}</span>
+          <span><strong>Jami xarajat:</strong> {{ finance_exp_total }}</span>
+          <span><strong>Fo'yda:</strong> {{ finance_profit_total }}</span>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-striped table-hover table-compact mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>Sana</th>
+                <th class="text-end">Tushum</th>
+                <th class="text-end">Xarajat</th>
+                <th class="text-end">Foyda</th>
+                <th class="text-end">Tushum (kumul.)</th>
+                <th class="text-end">Xarajat (kumul.)</th>
+                <th class="text-end">Foyda (kumul.)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for r in finance_rows %}
+                <tr>
+                  <td>{{ r.date }}</td>
+                  <td class="text-end">{{ r.rev }}</td>
+                  <td class="text-end">{{ r.exp }}</td>
+                  <td class="text-end">{{ r.profit }}</td>
+                  <td class="text-end">{{ r.rev_cum }}</td>
+                  <td class="text-end">{{ r.exp_cum }}</td>
+                  <td class="text-end">{{ r.profit_cum }}</td>
+                </tr>
+              {% empty %}
+                <tr><td colspan="7" class="text-center text-muted py-3">Ma'lumot yo'q</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div class="col-12">
+      <div class="card shadow-sm h-100">
         <div class="card-header bg-light fw-semibold">30 kunlik qabul soni (kunlik)</div>
         <div class="card-body" style="height: 320px;">
           <canvas id="last30Chart"></canvas>
@@ -32,7 +84,6 @@
             <span class="me-2">—</span>
             <input type="date" class="form-control form-control-sm me-2" name="pay_end" value="{{ pay_end }}">
             <button class="btn btn-sm btn-primary me-2">Ko'rsat</button>
-            <a class="btn btn-sm btn-outline-secondary me-2" href="?pay_start={{ pay_start }}&pay_end={{ pay_end }}&export=csv" download>CSV</a>
             <a class="btn btn-sm btn-outline-secondary" href="?pay_start={{ pay_start }}&pay_end={{ pay_end }}&export=pdf" download>PDF</a>
           </form>
         </div>
@@ -88,6 +139,22 @@
       interaction: { mode: 'nearest', intersect: false },
       scales: { x: { grid: {display: false} }, y: { ticks: { precision: 0 } } }
     };
+
+    // Finance
+    const finLabels = {{ finance_labels|safe }};
+    const finRev = {{ finance_rev|safe }};
+    const finExp = {{ finance_exp|safe }};
+    new Chart(document.getElementById('financeChart'), {
+      type: 'line',
+      data: {
+        labels: finLabels,
+        datasets: [
+          { label: 'Tushum (kumulative)', data: finRev, borderColor: '#198754', backgroundColor: 'rgba(25,135,84,.12)', tension: .3, fill: true, pointRadius: 0 },
+          { label: 'Xarajat (kumulative)', data: finExp, borderColor: '#dc3545', backgroundColor: 'rgba(220,53,69,.12)', tension: .3, fill: true, pointRadius: 0 }
+        ]
+      },
+      options: baseOpts
+    });
 
     const last30Labels = {{ last30_labels|safe }};
     const last30Data = {{ last30_data|safe }};

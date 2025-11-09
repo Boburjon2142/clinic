@@ -18,7 +18,7 @@ def patient_list(request):
 @role_required(['creator', 'admin', 'admin1', 'staff'])
 def patient_create(request):
     if request.method == 'POST':
-        form = PatientForm(request.POST)
+        form = PatientForm(request.POST, request.FILES)
         if form.is_valid():
             form.save()
             messages.success(request, 'Bemor qo\'shildi')
@@ -26,3 +26,6 @@ def patient_create(request):
     else:
         form = PatientForm()
     return render(request, 'patients/patient_form.html', {'form': form})
+
+from django.contrib import messages  # added for success message
+from django.shortcuts import redirect  # added for redirects

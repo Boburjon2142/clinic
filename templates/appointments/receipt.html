@@ -42,7 +42,7 @@
   <div class="stars">********************************</div>
 
   <div class="block small">
-    <div class="lr"><span>Hujjat:</span><span>
+    <div class="lr"><span>Raqam:</span><span>
       {% if appointment.doc_no %}{{ doctor.code_prefix }}{{ appointment.doc_no|stringformat:"03d" }}{% else %}{{ doctor.code_prefix }}{{ appointment.id|stringformat:"03d" }}{% endif %}
     </span></div>
     <div class="lr"><span>Sana:</span><span>{{ appointment.date }}</span></div>
@@ -55,9 +55,7 @@
     {% if doctor.room_number %}
       <div class="lr"><span><strong>Xona:</strong></span><span>{{ doctor.room_number }}</span></div>
     {% endif %}
-    {% if appointment.complaint %}
-      <div class="lr"><span><strong>Shikoyat:</strong></span><span>{{ appointment.complaint.name }}</span></div>
-    {% endif %}
+    
   </div>
   <div class="stars">********************************</div>
   <div class="center small muted">

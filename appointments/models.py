@@ -10,22 +10,9 @@ class AppointmentStatus(models.TextChoices):
     DONE = 'done', 'Tugallangan'
 
 
-class Complaint(models.Model):
-    name = models.CharField("Shikoyat nomi", max_length=255, unique=True)
-    is_active = models.BooleanField(default=True)
-
-    class Meta:
-        verbose_name = "Shikoyat"
-        verbose_name_plural = "Shikoyatlar"
-
-    def __str__(self):
-        return self.name
-
-
 class Appointment(models.Model):
     doctor = models.ForeignKey(Doctor, verbose_name='Shifokor', on_delete=models.CASCADE, related_name='appointments')
     patient = models.ForeignKey(Patient, verbose_name='Bemor', on_delete=models.CASCADE, related_name='appointments')
-    complaint = models.ForeignKey(Complaint, verbose_name='Shikoyat', null=True, blank=True, on_delete=models.SET_NULL)
     date = models.DateField('Sana')
     time = models.TimeField('Vaqt')
     status = models.CharField('Holat', max_length=20, choices=AppointmentStatus.choices, default=AppointmentStatus.WAITING)

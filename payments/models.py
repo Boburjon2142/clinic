@@ -28,3 +28,27 @@ class Payment(models.Model):
     class Meta:
         verbose_name = "To'lov"
         verbose_name_plural = "To'lovlar"
+
+
+class ExpenseStatus(models.TextChoices):
+    PENDING = 'pending', 'Kutilmoqda'
+    APPROVED = 'approved', 'Tasdiqlandi'
+    REJECTED = 'rejected', 'Rad etildi'
+
+
+class ExpenseRequest(models.Model):
+    amount = models.DecimalField("Miqdor", max_digits=12, decimal_places=2)
+    comment = models.TextField("Izoh", blank=True)
+    requested_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='expense_requests')
+    status = models.CharField("Holat", max_length=20, choices=ExpenseStatus.choices, default=ExpenseStatus.PENDING)
+    created_at = models.DateTimeField(auto_now_add=True)
+    approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name='approved_expenses')
+    approved_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = "Xarajat so'rovi"
+        verbose_name_plural = "Xarajat so'rovlari"
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.amount} — {self.get_status_display()}"

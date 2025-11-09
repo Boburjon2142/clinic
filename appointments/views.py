@@ -6,9 +6,9 @@ from django.utils import timezone
 from accounts.utils import role_required
  
 from patients.models import Patient
-from .models import Appointment, AppointmentStatus, Complaint
+from .models import Appointment, AppointmentStatus
 # from payments.models import Payment, PaymentMethod
-from .forms import AppointmentForm, ComplaintForm
+from .forms import AppointmentForm
 from django import forms
 
 
@@ -52,7 +52,7 @@ def appointment_create(request):
 @login_required
 @role_required(['creator', 'admin', 'admin1', 'doctor', 'staff', 'admin2', 'admin3'])
 def appointment_receipt(request, appointment_id):
-    ap = get_object_or_404(Appointment.objects.select_related('doctor', 'patient', 'complaint'), pk=appointment_id)
+    ap = get_object_or_404(Appointment.objects.select_related('doctor', 'patient'), pk=appointment_id)
     # Optional clinic settings
     try:
         from dashboard.models import Setting
@@ -138,56 +138,7 @@ def advance_queue(request, appointment_id, action):
     return redirect('appointments:list')
 
 
-# Complaint CRUD (creator-only)
-@login_required
-@role_required(['creator'])
-def complaint_list(request):
-    q = request.GET.get('q', '').strip()
-    items = Complaint.objects.all()
-    if q:
-        items = items.filter(name__icontains=q)
-    items = items.order_by('name')
-    return render(request, 'appointments/complaints_list.html', {'items': items, 'q': q})
-
-
-@login_required
-@role_required(['creator'])
-def complaint_create(request):
-    if request.method == 'POST':
-        form = ComplaintForm(request.POST)
-        if form.is_valid():
-            form.save()
-            messages.success(request, 'Shikoyat qo\'shildi')
-            return redirect('complaints:list')
-    else:
-        form = ComplaintForm()
-    return render(request, 'appointments/complaint_form.html', {'form': form})
-
-
-@login_required
-@role_required(['creator'])
-def complaint_update(request, pk):
-    obj = get_object_or_404(Complaint, pk=pk)
-    if request.method == 'POST':
-        form = ComplaintForm(request.POST, instance=obj)
-        if form.is_valid():
-            form.save()
-            messages.success(request, 'Shikoyat yangilandi')
-            return redirect('complaints:list')
-    else:
-        form = ComplaintForm(instance=obj)
-    return render(request, 'appointments/complaint_form.html', {'form': form, 'obj': obj})
-
-
-@login_required
-@role_required(['creator'])
-def complaint_delete(request, pk):
-    obj = get_object_or_404(Complaint, pk=pk)
-    if request.method == 'POST':
-        obj.delete()
-        messages.success(request, 'Shikoyat o\'chirildi')
-        return redirect('complaints:list')
-    return render(request, 'appointments/complaint_confirm_delete.html', {'obj': obj})
+# Complaint CRUD removed entirely
 
 
 @login_required
@@ -221,7 +172,7 @@ def appointments_for_cashier(request):
 @login_required
 @role_required(['creator', 'admin', 'admin2'])
 def appointment_price_receipt(request, appointment_id):
-    ap = get_object_or_404(Appointment.objects.select_related('doctor', 'patient', 'complaint'), pk=appointment_id)
+    ap = get_object_or_404(Appointment.objects.select_related('doctor', 'patient'), pk=appointment_id)
     try:
         from dashboard.models import Setting
         setting = Setting.objects.first()

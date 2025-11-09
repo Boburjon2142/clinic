@@ -29,7 +29,7 @@
   </div>
   <div class="stars">********************************</div>
   <div class="small">
-    <div class="lr"><span>Hujjat:</span><span>{{ doctor.code_prefix }}{{ appointment.doc_no|stringformat:'03d' }}</span></div>
+    <div class="lr"><span>Raqam:</span><span>{{ doctor.code_prefix }}{{ appointment.doc_no|stringformat:'03d' }}</span></div>
     <div class="lr"><span>Sana:</span><span>{{ appointment.date }}</span></div>
     <div class="lr"><span>Vaqt:</span><span>{{ appointment.time }}</span></div>
   </div>
@@ -40,9 +40,7 @@
     {% if doctor.room_number %}
       <div class="lr"><span><strong>Xona:</strong></span><span>{{ doctor.room_number }}</span></div>
     {% endif %}
-    {% if appointment.complaint %}
-      <div class="lr"><span><strong>Shikoyat:</strong></span><span>{{ appointment.complaint.name }}</span></div>
-    {% endif %}
+    
   </div>
   <hr class="sep">
   <div class="block small">
@@ -69,4 +67,3 @@
   </script>
 </body>
 </html>
-

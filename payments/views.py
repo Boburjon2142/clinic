@@ -3,11 +3,12 @@ from django.http import HttpResponse
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db import IntegrityError
+from django.utils import timezone
 
 from accounts.utils import role_required
 from appointments.models import Appointment
-from .models import Payment
-from .forms import PaymentForm
+from .models import Payment, ExpenseRequest, ExpenseStatus
+from .forms import PaymentForm, ExpenseRequestForm
 from .utils import qr_base64
 
 
@@ -86,3 +87,51 @@ def receipt_pdf(request, payment_id):
     except Exception:
         # Fallback: return HTML inline
         return HttpResponse(html)
+
+
+# Expenses
+@login_required
+@role_required(['admin', 'admin1', 'admin2', 'admin3', 'staff', 'creator'])
+def expenses_request(request):
+    if request.method == 'POST':
+        form = ExpenseRequestForm(request.POST)
+        if form.is_valid():
+            obj = form.save(commit=False)
+            obj.requested_by = request.user
+            obj.status = ExpenseStatus.PENDING
+            obj.save()
+            messages.success(request, "Xarajat so'rovi yuborildi. Tasdiqlash kutilmoqda.")
+            return redirect('payments:expenses_request')
+    else:
+        form = ExpenseRequestForm()
+    my_requests = ExpenseRequest.objects.filter(requested_by=request.user).order_by('-created_at')[:100]
+    return render(request, 'payments/expenses_request.html', {'form': form, 'items': my_requests})
+
+
+@login_required
+@role_required(['creator'])
+def expenses_review(request):
+    # Approve/Reject via POST
+    if request.method == 'POST':
+        exp_id = request.POST.get('id')
+        action = request.POST.get('action')
+        obj = get_object_or_404(ExpenseRequest, pk=exp_id)
+        if obj.status != ExpenseStatus.PENDING:
+            messages.info(request, 'Ushbu so\'rov allaqachon ko\'rib chiqilgan')
+            return redirect('payments:expenses_review')
+        if action == 'approve':
+            obj.status = ExpenseStatus.APPROVED
+            obj.approved_by = request.user
+            obj.approved_at = timezone.now()
+            obj.save(update_fields=['status', 'approved_by', 'approved_at'])
+            messages.success(request, 'Xarajat so\'rovi tasdiqlandi')
+        elif action == 'reject':
+            obj.status = ExpenseStatus.REJECTED
+            obj.approved_by = request.user
+            obj.approved_at = timezone.now()
+            obj.save(update_fields=['status', 'approved_by', 'approved_at'])
+            messages.warning(request, 'Xarajat so\'rovi rad etildi')
+        return redirect('payments:expenses_review')
+    pending = ExpenseRequest.objects.filter(status=ExpenseStatus.PENDING).select_related('requested_by')[:200]
+    recent = ExpenseRequest.objects.exclude(status=ExpenseStatus.PENDING).select_related('requested_by')[:200]
+    return render(request, 'payments/expenses_review.html', {'pending': pending, 'recent': recent})

@@ -13,13 +13,7 @@
           <div class="form-text">Qidiruv maydonida yozib, quyidagi roʻyxatni filtrlashingiz mumkin.</div>
         </div>
 
-        <div class="mb-2">
-          <label class="form-label">{{ form.complaint.label }}</label>
-          {{ form.complaint }}
-          {% if user.role == 'creator' or user.is_superuser %}
-            <div class="form-text"><a href="/admin/complaints/new/" target="_blank">Yangi shikoyat qoʻshish</a></div>
-          {% endif %}
-        </div>
+        
 
         <div class="mb-2">
           <label class="form-label">{{ form.patient_name.label }}</label>

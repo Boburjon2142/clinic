@@ -11,7 +11,7 @@ urlpatterns = [
     # otherwise they get swallowed by admin's catch-all.
     path('admin/dashboard/', include('dashboard.urls')),
     path('admin/doctors/', include('doctors.urls')),
-    path('admin/complaints/', include('appointments.complaint_urls')),
+    
 
     # Public app routes
     path('accounts/', include('accounts.urls')),

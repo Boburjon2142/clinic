@@ -4,7 +4,7 @@
   <div class="d-flex justify-content-between align-items-center mb-3">
     <h3 class="mb-0">{{ page_title|default:"Qabul ro'yxati" }}</h3>
     <div class="d-flex gap-2" style="min-width: 360px;">
-      <input id="apptSearch" type="text" class="form-control" placeholder="Qidirish: bemor / shifokor / shikoyat">
+      <input id="apptSearch" type="text" class="form-control" placeholder="Qidirish: bemor / shifokor">
       <a class="btn btn-primary" href="/appointments/new/">Yangi qabul</a>
     </div>
   </div>
@@ -18,7 +18,7 @@
             <th>Vaqt</th>
             <th>Bemor</th>
             <th class="d-none d-sm-table-cell">Shifokor</th>
-            <th class="d-none d-sm-table-cell">Shikoyat</th>
+            
             <th class="text-end">Amallar</th>
           </tr>
         </thead>
@@ -29,7 +29,7 @@
             <td>{{ a.time|time:'H:i' }}</td>
             <td>{{ a.patient.full_name }}</td>
             <td class="d-none d-sm-table-cell">{{ a.doctor.full_name }}</td>
-            <td class="d-none d-sm-table-cell">{{ a.complaint.name|default:'-' }}</td>
+            
             <td class="text-end">
               <div class="d-inline-flex gap-2">
                 <span class="badge bg-light text-dark border">Narx: {{ a.service_price|default:'-' }}</span>
@@ -49,7 +49,7 @@
             </td>
           </tr>
           {% empty %}
-          <tr><td colspan="6" class="text-center">Ma'lumot topilmadi</td></tr>
+          <tr><td colspan="5" class="text-center">Ma'lumot topilmadi</td></tr>
           {% endfor %}
         </tbody>
       </table>

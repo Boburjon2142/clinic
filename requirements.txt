@@ -1,6 +1,5 @@
-Django>=4.2,<6.0
-WeasyPrint>=61.0
-qrcode>=7.4
+Django>=5.1,<5.2
+# If you use ImageField/FileField
 Pillow>=10.0
-psycopg2-binary>=2.9,<3.0
+# Optional: load env from .env
 python-dotenv>=1.0

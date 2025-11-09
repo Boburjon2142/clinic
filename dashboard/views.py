@@ -1,7 +1,7 @@
 from datetime import date, timedelta
 import json
 import re
-from django.db.models import Count, Sum
+from django.db.models import Count, Sum, Min
 from django.db.models.functions import TruncDay, TruncMonth
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
@@ -12,10 +12,16 @@ from doctors.models import Doctor
 from patients.models import Patient
 from appointments.models import Appointment
 from payments.models import Payment
+try:
+    from payments.models import ExpenseRequest, ExpenseStatus
+except Exception:
+    ExpenseRequest = None
+    ExpenseStatus = None
 from .models import Setting
 from .forms import SettingForm
 from accounts.models import User, Roles
 from django.db import transaction
+from django.utils.timezone import localdate
 
 
 @login_required
@@ -73,7 +79,7 @@ def home(request):
     except Exception:
         setting = None
     latest = (Appointment.objects
-              .select_related('doctor', 'patient', 'complaint')
+              .select_related('doctor', 'patient')
               .order_by('-date', '-time')[:8])
     return render(request, 'home.html', {
         'stats': stats,
@@ -261,6 +267,44 @@ def remove_admin(request, pk):
         user.save()
         messages.success(request, f"{user.username} dan admin huquqlari olib tashlandi")
     return redirect('users_manage')
+
+
+# Data cleanup: remove patients, their appointments and payments, keep expenses
+@login_required
+@role_required(['creator'])
+def clear_patients(request):
+    # Summaries for confirmation
+    total_patients = Patient.objects.count()
+    total_appointments = Appointment.objects.count()
+    total_payments = Payment.objects.count()
+    try:
+        total_expenses = ExpenseRequest.objects.count()
+    except Exception:
+        total_expenses = 0
+
+    if request.method == 'POST':
+        with transaction.atomic():
+            # Delete payments first (redundant, but clearer) then appointments and patients
+            Payment.objects.all().delete()
+            Appointment.objects.all().delete()
+            Patient.objects.all().delete()
+            # Mark cleanup date in settings
+            try:
+                s = Setting.objects.first()
+                if s:
+                    s.last_cleanup = localdate()
+                    s.save(update_fields=['last_cleanup'])
+            except Exception:
+                pass
+        messages.success(request, "Bemorlar bazasi tozalandi. Xarajatlar saqlab qolindi.")
+        return redirect('/admin/dashboard/settings/')
+
+    return render(request, 'dashboard/confirm_clear_patients.html', {
+        'total_patients': total_patients,
+        'total_appointments': total_appointments,
+        'total_payments': total_payments,
+        'total_expenses': total_expenses,
+    })
 
 
 @login_required
@@ -599,6 +643,219 @@ def stats_view(request):
             )
             return response
 
+    # Finance range: revenue (payments) vs expenses (approved requests)
+    try:
+        fin_start_param = request.GET.get('fin_start')
+        fin_end_param = request.GET.get('fin_end')
+    except Exception:
+        fin_start_param = fin_end_param = None
+    from datetime import timedelta as _td
+    today = date.today()
+    # Default to full history: earliest of payments/expenses -> today
+    if not fin_start_param:
+        try:
+            pmin = Payment.objects.aggregate(m=Min('created_at'))['m']
+        except Exception:
+            pmin = None
+        try:
+            emin = ExpenseRequest.objects.aggregate(m=Min('approved_at'))['m'] if ExpenseRequest else None
+        except Exception:
+            emin = None
+        first = None
+        for d in [pmin, emin]:
+            if d and (first is None or d.date() < first):
+                first = d.date()
+        fin_start = first or (today - _td(days=30))
+    else:
+        fin_start = date.fromisoformat(fin_start_param)
+    fin_end = date.fromisoformat(fin_end_param) if fin_end_param else today
+
+    # Aggregate daily
+    from collections import defaultdict
+    rev_daily = defaultdict(float)
+    for row in (Payment.objects
+                .filter(created_at__date__gte=fin_start, created_at__date__lte=fin_end)
+                .annotate(day=TruncDay('created_at'))
+                .values('day')
+                .annotate(total=Sum('amount'))
+                .order_by('day')):
+        rev_daily[row['day'].date()] = float(row['total'] or 0)
+
+    exp_daily = defaultdict(float)
+    if ExpenseRequest and ExpenseStatus:
+        for row in (ExpenseRequest.objects
+                    .filter(status=ExpenseStatus.APPROVED,
+                            approved_at__date__gte=fin_start,
+                            approved_at__date__lte=fin_end)
+                    .annotate(day=TruncDay('approved_at'))
+                    .values('day')
+                    .annotate(total=Sum('amount'))
+                    .order_by('day')):
+            exp_daily[row['day'].date()] = float(row['total'] or 0)
+
+    # Build cumulative series
+    labels = []
+    rev_series = []
+    exp_series = []
+    rows = []
+    r_sum = 0.0
+    e_sum = 0.0
+    d = fin_start
+    while d <= fin_end:
+        labels.append(d.strftime('%Y-%m-%d'))
+        day_rev = round(rev_daily.get(d, 0.0), 2)
+        day_exp = round(exp_daily.get(d, 0.0), 2)
+        day_profit = round(day_rev - day_exp, 2)
+        r_sum = round(r_sum + day_rev, 2)
+        e_sum = round(e_sum + day_exp, 2)
+        rev_series.append(r_sum)
+        exp_series.append(e_sum)
+        rows.append({
+            'date': d.strftime('%Y-%m-%d'),
+            'rev': day_rev,
+            'exp': day_exp,
+            'profit': day_profit,
+            'rev_cum': r_sum,
+            'exp_cum': e_sum,
+            'profit_cum': round(r_sum - e_sum, 2),
+        })
+        d += _td(days=1)
+
+    finance = {
+        'labels': labels,
+        'revenue': rev_series,
+        'expenses': exp_series,
+        'revenue_total': round(r_sum, 2),
+        'expenses_total': round(e_sum, 2),
+        'profit_total': round(r_sum - e_sum, 2),
+        'fin_start': fin_start.isoformat(),
+        'fin_end': fin_end.isoformat(),
+    }
+
+    # Finance exports (CSV / PDF)
+    fin_export = request.GET.get('fin_export')
+    if fin_export == 'csv':
+        import csv
+        from io import StringIO
+        sio = StringIO()
+        writer = csv.writer(sio)
+        writer.writerow(['Sana', 'Tushum', 'Xarajat', 'Foyda', 'Tushum (kumul.)', 'Xarajat (kumul.)', 'Foyda (kumul.)'])
+        for r in rows:
+            writer.writerow([r['date'], r['rev'], r['exp'], r['profit'], r['rev_cum'], r['exp_cum'], r['profit_cum']])
+        from django.http import HttpResponse
+        resp = HttpResponse(sio.getvalue(), content_type='text/csv; charset=utf-8')
+        resp['Content-Disposition'] = f"attachment; filename=finance_{finance['fin_start']}_{finance['fin_end']}.csv"
+        return resp
+    if fin_export == 'pdf':
+        # Try WeasyPrint first; if not available, generate a minimal PDF bytes fallback
+        try:
+            from weasyprint import HTML
+            # Simple HTML rendering via WeasyPrint
+            table_rows = ''.join([
+                f"<tr><td>{r['date']}</td><td style='text-align:right'>{r['rev']}</td><td style='text-align:right'>{r['exp']}</td><td style='text-align:right'>{r['profit']}</td>"
+                f"<td style='text-align:right'>{r['rev_cum']}</td><td style='text-align:right'>{r['exp_cum']}</td><td style='text-align:right'>{r['profit_cum']}</td></tr>"
+                for r in rows
+            ])
+            html = f"""
+            <html><head><meta charset='utf-8'><style>
+            body{{ font-family: DejaVu Sans, Arial, sans-serif; font-size:12px; }}
+            h3{{ margin:0 0 8px 0; }} table{{ width:100%; border-collapse:collapse; }}
+            th,td{{ border:1px solid #000; padding:4px; }} th{{ background:#f2f2f2; }}
+            </style></head><body>
+            <h3>Tushum va xarajatlar: {finance['fin_start']} — {finance['fin_end']}</h3>
+            <table>
+              <thead><tr>
+                <th>Sana</th><th>Tushum</th><th>Xarajat</th><th>Foyda</th>
+                <th>Tushum (kumul.)</th><th>Xarajat (kumul.)</th><th>Foyda (kumul.)</th>
+              </tr></thead>
+              <tbody>{table_rows}</tbody>
+            </table>
+            <p><strong>Jami tushum:</strong> {finance['revenue_total']} &nbsp; 
+               <strong>Jami xarajat:</strong> {finance['expenses_total']} &nbsp; 
+               <strong>Foyda:</strong> {finance['profit_total']}</strong></p>
+            </body></html>
+            """
+            pdf = HTML(string=html).write_pdf()
+            from django.http import HttpResponse
+            response = HttpResponse(pdf, content_type='application/pdf')
+            response['Content-Disposition'] = f"attachment; filename=finance_{finance['fin_start']}_{finance['fin_end']}.pdf"
+            return response
+        except Exception:
+            pass
+
+        # Minimal PDF fallback (no external dependencies)
+        def _esc(s: str) -> str:
+            # Escape for PDF string syntax and force ASCII-friendly characters
+            s = (s or '').replace('\u2014', '-').replace('\u2013', '-')  # dashes
+            s = s.replace('—', '-').replace('–', '-')
+            return s.replace('\\', r'\\\\').replace('(', r'\\(').replace(')', r'\\)')
+
+        # Build fixed-width table in plain text
+        def fmt_row(d):
+            return f"{d['date']:<12} {d['rev']:>12} {d['exp']:>12} {d['profit']:>12} {d['rev_cum']:>14} {d['exp_cum']:>14} {d['profit_cum']:>14}"
+
+        lines = [
+            f"Tushum va xarajatlar: {finance['fin_start']} - {finance['fin_end']}",
+            "",
+            "Sana         Tushum       Xarajat       Foyda       Tushum(k)     Xarajat(k)      Foyda(k)",
+            "---------------------------------------------------------------------------------------------",
+        ]
+        lines += [fmt_row(r) for r in rows[:800]]  # cap
+        lines += [
+            "",
+            f"Jami tushum: {finance['revenue_total']}    Jami xarajat: {finance['expenses_total']}    Foyda: {finance['profit_total']}",
+        ]
+
+        # Create a simple one-page PDF with Helvetica
+        width, height = 595, 842  # A4 portrait
+        y = height - 60
+        leading = 14
+        # Use monospaced font for neat columns
+        content_lines = ["BT /F1 11 Tf {} TL 40 {} Td".format(leading, y)]
+        for i, text in enumerate(lines):
+            content_lines.append(f"({_esc(text)}) Tj")
+            content_lines.append("T*")
+        content_lines.append("ET")
+        content = "\n".join(content_lines).encode('latin-1', 'replace')
+
+        objects = []
+        def obj(data):
+            objects.append(data)
+            return len(objects)
+
+        # 1. Font
+        font_obj = obj(b"<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>")
+        # 2. Contents
+        stream = b"<< /Length " + str(len(content)).encode('ascii') + b" >>\nstream\n" + content + b"\nendstream"
+        contents_obj = obj(stream)
+        # 3. Page
+        page_obj = obj(b"<< /Type /Page /Parent 0 0 R /MediaBox [0 0 595 842] /Contents " + str(contents_obj).encode('ascii') + b" 0 R /Resources << /Font << /F1 " + str(font_obj).encode('ascii') + b" 0 R >> >> >>")
+        # 4. Pages
+        pages_obj = obj(b"<< /Type /Pages /Kids [ " + str(page_obj).encode('ascii') + b" 0 R ] /Count 1 >>")
+        # 5. Catalog
+        catalog_obj = obj(b"<< /Type /Catalog /Pages " + str(pages_obj).encode('ascii') + b" 0 R >>")
+
+        # Assemble PDF
+        xref = [b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n"]
+        offsets = [0]
+        for i, o in enumerate(objects, 1):
+            offsets.append(sum(len(p) for p in xref))
+            xref.append(f"{i} 0 obj\n".encode('ascii'))
+            xref.append(o + b"\nendobj\n")
+        xref_pos = sum(len(p) for p in xref)
+        xref.append(b"xref\n0 " + str(len(objects)+1).encode('ascii') + b"\n")
+        xref.append(b"0000000000 65535 f \n")
+        pos = 0
+        for i in range(1, len(objects)+1):
+            # simple incremental; we already captured offsets above, but compute now
+            xref.append(str(offsets[i]).zfill(10).encode('ascii') + b" 00000 n \n")
+        xref.append(b"trailer\n<< /Size " + str(len(objects)+1).encode('ascii') + b" /Root " + str(catalog_obj).encode('ascii') + b" 0 R >>\nstartxref\n" + str(xref_pos).encode('ascii') + b"\n%%EOF")
+        pdf_bytes = b"".join(xref)
+        from django.http import HttpResponse
+        response = HttpResponse(pdf_bytes, content_type='application/pdf')
+        response['Content-Disposition'] = f"attachment; filename=finance_{finance['fin_start']}_{finance['fin_end']}.pdf"
+        return response
+
     ctx = {
         'last30_labels': json.dumps(last30_labels),
         'last30_data': json.dumps(last30_data),
@@ -611,6 +868,15 @@ def stats_view(request):
         'pay_start': pay_start.isoformat(),
         'pay_end': pay_end.isoformat(),
         'admin3_total': admin3_total,
+        'finance_labels': json.dumps(finance['labels']),
+        'finance_rev': json.dumps(finance['revenue']),
+        'finance_exp': json.dumps(finance['expenses']),
+        'finance_rev_total': finance['revenue_total'],
+        'finance_exp_total': finance['expenses_total'],
+        'finance_profit_total': finance['profit_total'],
+        'fin_start': finance['fin_start'],
+        'fin_end': finance['fin_end'],
+        'finance_rows': rows,
     }
     return render(request, 'dashboard/stats.html', ctx)
 
