@@ -27,5 +27,5 @@ def patient_create(request):
         form = PatientForm()
     return render(request, 'patients/patient_form.html', {'form': form})
 
-from django.contrib import messages  # added for success message
-from django.shortcuts import redirect  # added for redirects
+from django.contrib import messages  # duplicate import removed above
+from django.shortcuts import redirect  # duplicate import removed above

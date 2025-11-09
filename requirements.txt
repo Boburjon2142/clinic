@@ -1,5 +1,20 @@
+# Django framework
 Django>=5.1,<5.2
-# If you use ImageField/FileField
+
+# Image va fayl ishlov berish uchun
 Pillow>=10.0
-# Optional: load env from .env
+
+# Environment o‘zgaruvchilar uchun (.env)
 python-dotenv>=1.0
+
+# PostgreSQL drayveri (Render DB uchun)
+psycopg2-binary>=2.9
+
+# Database URL parser (dj_database_url bilan settings.py ishlashi uchun)
+dj-database-url>=2.2
+
+# Production WSGI server
+gunicorn>=21.2
+
+# Static fayllar uchun WhiteNoise
+whitenoise>=6.6
