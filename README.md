@@ -43,3 +43,40 @@ Notes
 - If you see "ModuleNotFoundError: No module named 'django'", dependencies are not installed in the active venv. Re‑activate venv and run step 2.
 - If you use file/image uploads, Pillow is required and included in requirements.txt.
 - If NoReverseMatch occurs, verify URL names used in redirect() exist in patients/urls.py.
+
+PythonAnywhere (Free) deploy checklist
+--------------------------------------
+1. Upload or clone the project into `/home/<username>/klinika` and create a virtualenv:
+
+       mkvirtualenv --python=python3.12 klinikaenv
+       workon klinikaenv
+       pip install -r /home/<username>/klinika/requirements.txt
+
+   Install the MySQL driver if you use PythonAnywhere’s MySQL:
+
+       pip install mysqlclient
+
+2. Copy `.env.pythonanywhere` to `.env` and replace placeholders:
+   - `DJANGO_SECRET_KEY` with a long random value.
+   - `ALLOWED_HOSTS` and `CSRF_TRUSTED_ORIGINS` with `yourusername.pythonanywhere.com` (plus any custom domain).
+   - `DATABASE_URL` with the MySQL credentials shown on the PythonAnywhere Databases tab.
+   - Update `STATIC_ROOT` / `MEDIA_ROOT` paths to match `/home/<username>/klinika/...`.
+
+3. Apply migrations, collect static files, and create an admin account:
+
+       workon klinikaenv
+       cd /home/<username>/klinika
+       python manage.py migrate
+       python manage.py collectstatic --noinput
+       python manage.py createsuperuser
+
+4. Configure the web app (Manual config, Python 3.12):
+   - Code directory: `/home/<username>/klinika`
+   - Virtualenv: `/home/<username>/.virtualenvs/klinikaenv`
+   - WSGI file loads `klinika_project.wsgi`
+   - Static mappings:
+        * `/static/` → `/home/<username>/klinika/staticfiles`
+        * `/media/` → `/home/<username>/klinika/media`
+
+5. Reload the web app, open the site, and verify `/accounts/login/` works. Use
+   `python manage.py check --deploy` in a console to confirm production settings.

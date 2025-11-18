@@ -10,6 +10,9 @@ python-dotenv>=1.0
 # PostgreSQL drayveri (Render DB uchun)
 psycopg2-binary>=2.9
 
+# MySQL drayveri (PythonAnywhere uchun)
+mysqlclient>=2.2
+
 # Database URL parser (dj_database_url bilan settings.py ishlashi uchun)
 dj-database-url>=2.2
 
