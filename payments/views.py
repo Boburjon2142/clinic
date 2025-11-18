@@ -5,7 +5,7 @@ from django.contrib import messages
 from django.db import IntegrityError
 from django.utils import timezone
 
-from accounts.utils import role_required
+from accounts.utils import role_required, limit_queryset_for_admin
 from appointments.models import Appointment
 from .models import Payment, ExpenseRequest, ExpenseStatus
 from .forms import PaymentForm, ExpenseRequestForm
@@ -15,7 +15,9 @@ from .utils import qr_base64
 @login_required
 @role_required(['creator', 'admin', 'admin3'])
 def payment_create(request, appointment_id):
-    ap = get_object_or_404(Appointment, pk=appointment_id)
+    qs = Appointment.objects.all()
+    qs = limit_queryset_for_admin(qs, request.user)
+    ap = get_object_or_404(qs, pk=appointment_id)
     # If payment already exists, send to its receipt (auto-print)
     try:
         if hasattr(ap, 'payment') and ap.payment is not None:
@@ -55,7 +57,9 @@ def payment_create(request, appointment_id):
 @login_required
 @role_required(['creator', 'admin', 'admin3'])
 def receipt_pdf(request, payment_id):
-    payment = get_object_or_404(Payment, pk=payment_id)
+    payment_qs = Payment.objects.select_related('appointment__doctor', 'appointment__patient')
+    payment_qs = limit_queryset_for_admin(payment_qs, request.user, 'appointment__created_by')
+    payment = get_object_or_404(payment_qs, pk=payment_id)
     # Load optional clinic settings
     try:
         from dashboard.models import Setting

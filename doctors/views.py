@@ -3,11 +3,19 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import models
 
-from accounts.utils import role_required
+from accounts.utils import role_required, limit_queryset_for_admin
 from .models import Doctor
 from .forms import DoctorForm
 from django.utils.timezone import localdate
 from appointments.models import Appointment
+from payments.models import Payment
+
+
+def _get_payment_safe(appointment):
+    try:
+        return appointment.payment
+    except Payment.DoesNotExist:
+        return None
 
 
 @login_required
@@ -25,6 +33,7 @@ def doctor_list(request):
         return redirect('/accounts/login/')
     q = request.GET.get('q', '').strip()
     items = Doctor.objects.all()
+    items = limit_queryset_for_admin(items, request.user, 'created_by')
     if q:
         items = items.filter(models.Q(full_name__icontains=q) | models.Q(department__icontains=q) | models.Q(phone__icontains=q) | models.Q(room_number__icontains=q))
     today = localdate()
@@ -58,7 +67,8 @@ def doctor_create(request):
 @login_required
 @role_required(['creator'])
 def doctor_update(request, pk):
-    doctor = get_object_or_404(Doctor, pk=pk)
+    qs = limit_queryset_for_admin(Doctor.objects.all(), request.user, 'created_by')
+    doctor = get_object_or_404(qs, pk=pk)
     if request.method == 'POST':
         form = DoctorForm(request.POST, instance=doctor)
         if form.is_valid():
@@ -73,7 +83,8 @@ def doctor_update(request, pk):
 @login_required
 @role_required(['creator'])
 def doctor_delete(request, pk):
-    doctor = get_object_or_404(Doctor, pk=pk)
+    qs = limit_queryset_for_admin(Doctor.objects.all(), request.user, 'created_by')
+    doctor = get_object_or_404(qs, pk=pk)
     if request.method == 'POST':
         doctor.delete()
         messages.success(request, 'Shifokor o\'chirildi')
@@ -87,7 +98,9 @@ def doctor_reset_counter(request, pk):
     """Reset a doctor's receipt counter to 0.
     Admin2 may reset only their own profile.
     """
-    doc = get_object_or_404(Doctor, pk=pk)
+    qs_doctors = Doctor.objects.all()
+    qs_doctors = limit_queryset_for_admin(qs_doctors, request.user, 'created_by')
+    doc = get_object_or_404(qs_doctors, pk=pk)
     # Permission: admin2 can only reset their own
     if getattr(request.user, 'role', None) == 'admin2' and doc.created_by_id != request.user.id:
         messages.error(request, "Bu shifokor uchun sanog'ni qayta o'rnatishga ruxsat yo'q")
@@ -111,7 +124,11 @@ def doctor_appointments(request, pk):
     start = request.GET.get('start', '')
     end = request.GET.get('end', '')
 
-    qs = Appointment.objects.select_related('patient', 'complaint').filter(doctor=doc)
+    show_paid_only = getattr(request, 'show_paid_only', False) or request.GET.get('paid_only') == '1'
+    qs = Appointment.objects.select_related('patient', 'payment').filter(doctor=doc)
+    qs = limit_queryset_for_admin(qs, request.user)
+    if show_paid_only:
+        qs = qs.filter(payment__isnull=False)
     # Date filters (optional)
     from datetime import date
     try:
@@ -126,10 +143,10 @@ def doctor_appointments(request, pk):
             qs = qs.filter(date__lte=e)
     except Exception:
         end = ''
-    # Search by patient or complaint
+    # Search by patient name
     if q:
         from django.db.models import Q
-        qs = qs.filter(Q(patient__full_name__icontains=q) | Q(complaint__name__icontains=q))
+        qs = qs.filter(Q(patient__full_name__icontains=q))
 
     export = request.GET.get('export')
     qs = qs.order_by('-date', '-time')
@@ -154,26 +171,32 @@ def doctor_appointments(request, pk):
                 f"attachment; filename={clinic_slug}_{doc_slug}_appointments_{start or 'all'}_{end or 'all'}.csv"
             )
             writer = csv.writer(response)
-            writer.writerow(['Sana', 'Vaqt', 'Bemor', 'Shikoyat', 'Narx', 'Holat', 'Kod'])
+            writer.writerow(['Sana', 'Vaqt', 'Bemor', 'Xizmat narxi', "Holat", 'Kod', "To\'lov miqdori", "To\'lov usuli", "Kvitansiya №"])
             for a in qs.iterator():
                 code = f"{doc.code_prefix}{(a.doc_no or 0):03d}"
+                payment = _get_payment_safe(a)
                 writer.writerow([
                     a.date.isoformat(),
                     a.time.strftime('%H:%M'),
                     a.patient.full_name,
-                    getattr(a.complaint, 'name', ''),
                     f"{a.service_price or ''}",
                     a.get_status_display(),
                     code,
+                    f"{payment.amount}" if payment else '',
+                    payment.get_method_display() if payment else '',
+                    payment.receipt_no if payment else '',
                 ])
             return response
         else:
             from django.http import HttpResponse
             from django.template.loader import render_to_string
+            export_items = list(qs)
+            for entry in export_items:
+                entry.payment_obj = _get_payment_safe(entry)
             context = {
                 'clinic_name': clinic_name,
                 'doctor': doc,
-                'items': qs,
+                'items': export_items,
                 'start': start,
                 'end': end,
             }
@@ -195,13 +218,16 @@ def doctor_appointments(request, pk):
                 return resp
 
     # Non-export HTML view (limit rows for speed)
-    items = qs[:300]
+    items = list(qs[:300])
+    for entry in items:
+        entry.payment_obj = _get_payment_safe(entry)
     return render(request, 'doctors/doctor_appointments.html', {
         'doctor': doc,
         'items': items,
         'q': q,
         'start': start,
         'end': end,
+        'paid_only': show_paid_only,
     })
 
 
@@ -228,10 +254,12 @@ def my_doctor_appointments(request):
                 created_by=request.user,
                 code_prefix=next_code_prefix(),
             )
+        request.show_paid_only = True
         return doctor_appointments(request, doc.pk)
     except Exception:
         messages.error(request, "Ma'lumotlarni yuklashda xatolik yuz berdi")
         return redirect('/')
+
 
 
 

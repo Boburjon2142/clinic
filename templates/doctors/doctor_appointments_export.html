@@ -20,10 +20,12 @@
         <th>Sana</th>
         <th>Vaqt</th>
         <th>Bemor</th>
-        <th>Shikoyat</th>
         <th>Narx</th>
         <th>Holat</th>
         <th>Kod</th>
+        <th>To'lov</th>
+        <th>Usul</th>
+        <th>Kvitansiya №</th>
       </tr>
     </thead>
     <tbody>
@@ -32,13 +34,15 @@
           <td>{{ a.date }}</td>
           <td>{{ a.time|date:'H:i' }}</td>
           <td>{{ a.patient.full_name }}</td>
-          <td>{{ a.complaint.name|default:'' }}</td>
           <td class="num">{{ a.service_price|default:'' }}</td>
           <td>{{ a.get_status_display }}</td>
           <td>{{ doctor.code_prefix }}{{ a.doc_no|stringformat:'03d' }}</td>
+          <td class="num">{% if a.payment_obj %}{{ a.payment_obj.amount }}{% endif %}</td>
+          <td>{% if a.payment_obj %}{{ a.payment_obj.get_method_display }}{% endif %}</td>
+          <td>{% if a.payment_obj %}{{ a.payment_obj.receipt_no }}{% endif %}</td>
         </tr>
       {% empty %}
-        <tr><td colspan="7" style="text-align:center;color:#666">Ma'lumot topilmadi</td></tr>
+        <tr><td colspan="9" style="text-align:center;color:#666">Ma'lumot topilmadi</td></tr>
       {% endfor %}
     </tbody>
   </table>

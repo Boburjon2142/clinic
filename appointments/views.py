@@ -3,7 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.utils import timezone
 
-from accounts.utils import role_required
+from accounts.utils import role_required, limit_queryset_for_admin
  
 from patients.models import Patient
 from .models import Appointment, AppointmentStatus
@@ -23,7 +23,10 @@ def appointment_create(request):
             ap.status = AppointmentStatus.WAITING
             # Map patient_name -> Patient record (create if not exists)
             full_name = form.cleaned_data.get('patient_name').strip()
-            patient, _ = Patient.objects.get_or_create(full_name=full_name, defaults={'phone': ''})
+            defaults = {'phone': ''}
+            if request.user.is_authenticated:
+                defaults['created_by'] = request.user
+            patient, _ = Patient.objects.get_or_create(full_name=full_name, defaults=defaults)
             ap.patient = patient
             # Auto date/time: today + now (local time)
             ap.date = timezone.localdate()
@@ -45,14 +48,18 @@ def appointment_create(request):
     else:
         form = AppointmentForm()
     # Patient name suggestions (last 50)
-    suggestions = list(Patient.objects.order_by('-created_at').values_list('full_name', flat=True)[:50])
+    patient_qs = Patient.objects.order_by('-created_at')
+    patient_qs = limit_queryset_for_admin(patient_qs, request.user)
+    suggestions = list(patient_qs.values_list('full_name', flat=True)[:50])
     return render(request, 'appointments/appointment_form.html', {'form': form, 'patient_suggestions': suggestions})
 
 
 @login_required
 @role_required(['creator', 'admin', 'admin1', 'doctor', 'staff', 'admin2', 'admin3'])
 def appointment_receipt(request, appointment_id):
-    ap = get_object_or_404(Appointment.objects.select_related('doctor', 'patient'), pk=appointment_id)
+    qs = Appointment.objects.select_related('doctor', 'patient')
+    qs = limit_queryset_for_admin(qs, request.user)
+    ap = get_object_or_404(qs, pk=appointment_id)
     # Optional clinic settings
     try:
         from dashboard.models import Setting
@@ -93,7 +100,9 @@ def appointment_list(request):
         return redirect('appointments:queue_price')
     if role == 'admin3':
         return redirect('appointments:queue_cashier')
-    items = Appointment.objects.select_related('doctor', 'patient').order_by('-date', '-time')[:100]
+    items = Appointment.objects.select_related('doctor', 'patient').order_by('-date', '-time')
+    items = limit_queryset_for_admin(items, request.user)
+    items = items[:100]
     return render(request, 'appointments/appointment_list.html', {'appointments': items})
 
 
@@ -104,7 +113,9 @@ class SetPriceForm(forms.Form):
 @login_required
 @role_required(['creator', 'admin', 'admin2'])
 def appointment_set_price(request, appointment_id):
-    ap = get_object_or_404(Appointment, pk=appointment_id)
+    qs = Appointment.objects.all()
+    qs = limit_queryset_for_admin(qs, request.user)
+    ap = get_object_or_404(qs, pk=appointment_id)
     # Admin2 can only set price for appointments under their doctor profile
     try:
         user_role = getattr(request.user, 'role', None)
@@ -147,7 +158,9 @@ def appointments_pending_price(request):
     items = (Appointment.objects
              .select_related('doctor', 'patient')
              .filter(service_price__isnull=True)
-             .order_by('-date', '-time')[:200])
+             .order_by('-date', '-time'))
+    items = limit_queryset_for_admin(items, request.user)
+    items = items[:200]
     ctx = {
         'appointments': items,
         'page_title': "Narx belgilash uchun (Admin 2)",
@@ -161,7 +174,9 @@ def appointments_for_cashier(request):
     items = (Appointment.objects
              .select_related('doctor', 'patient')
              .filter(service_price__isnull=False, payment__isnull=True)
-             .order_by('-date', '-time')[:200])
+             .order_by('-date', '-time'))
+    items = limit_queryset_for_admin(items, request.user)
+    items = items[:200]
     ctx = {
         'appointments': items,
         'page_title': "To'lov qabul qilish uchun (Admin 3)",
@@ -172,7 +187,9 @@ def appointments_for_cashier(request):
 @login_required
 @role_required(['creator', 'admin', 'admin2'])
 def appointment_price_receipt(request, appointment_id):
-    ap = get_object_or_404(Appointment.objects.select_related('doctor', 'patient'), pk=appointment_id)
+    qs = Appointment.objects.select_related('doctor', 'patient')
+    qs = limit_queryset_for_admin(qs, request.user)
+    ap = get_object_or_404(qs, pk=appointment_id)
     try:
         from dashboard.models import Setting
         setting = Setting.objects.first()

@@ -7,7 +7,7 @@ from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 
-from accounts.utils import role_required
+from accounts.utils import role_required, limit_queryset_for_admin, get_admin_scope_user_ids
 from doctors.models import Doctor
 from patients.models import Patient
 from appointments.models import Appointment
@@ -41,9 +41,12 @@ def admin_dashboard(request):
     except Exception:
         end_date = start_date
 
-    doctors_count = Doctor.objects.count()
-    patients_count = Patient.objects.count()
+    doctor_qs = limit_queryset_for_admin(Doctor.objects.all(), request.user, 'created_by')
+    patient_qs = limit_queryset_for_admin(Patient.objects.all(), request.user)
+    doctors_count = doctor_qs.count()
+    patients_count = patient_qs.count()
     range_qs = Appointment.objects.filter(date__gte=start_date, date__lte=end_date)
+    range_qs = limit_queryset_for_admin(range_qs, request.user)
     range_total = range_qs.count()
     per_doctor = (
         range_qs.values('doctor__id', 'doctor__full_name', 'doctor__department')
@@ -69,10 +72,13 @@ def home(request):
         pass
     # For others, show a basic home with quick links
     today = date.today()
+    patient_qs = limit_queryset_for_admin(Patient.objects.all(), request.user)
+    doctor_qs = limit_queryset_for_admin(Doctor.objects.all(), request.user, 'created_by')
+    today_qs = limit_queryset_for_admin(Appointment.objects.filter(date=today), request.user)
     stats = {
-        'patients': Patient.objects.count(),
-        'doctors': Doctor.objects.count(),
-        'today_appointments': Appointment.objects.filter(date=today).count(),
+        'patients': patient_qs.count(),
+        'doctors': doctor_qs.count(),
+        'today_appointments': today_qs.count(),
     }
     try:
         setting = Setting.objects.first()
@@ -80,7 +86,9 @@ def home(request):
         setting = None
     latest = (Appointment.objects
               .select_related('doctor', 'patient')
-              .order_by('-date', '-time')[:8])
+              .order_by('-date', '-time'))
+    latest = limit_queryset_for_admin(latest, request.user)
+    latest = latest[:8]
     return render(request, 'home.html', {
         'stats': stats,
         'setting': setting,
@@ -170,7 +178,7 @@ def settings_view(request):
     if request.method == 'POST' and request.POST.get('update_doctor_id'):
         try:
             doc_id = int(request.POST.get('update_doctor_id'))
-            doc = Doctor.objects.get(pk=doc_id)
+            doc = limit_queryset_for_admin(Doctor.objects.all(), request.user, 'created_by').get(pk=doc_id)
             code = (request.POST.get('code_prefix') or '').strip().upper()[:2]
             room = (request.POST.get('room_number') or '').strip()
             dept = (request.POST.get('department') or '').strip()
@@ -202,6 +210,7 @@ def settings_view(request):
         form = SettingForm(instance=setting)
     # Doctors list for per-doctor counter reset
     doctors = Doctor.objects.all().order_by('full_name')
+    doctors = limit_queryset_for_admin(doctors, request.user, 'created_by')
     return render(request, 'dashboard/settings_form.html', {'form': form, 'setting': setting, 'doctors': doctors})
 
 
@@ -234,6 +243,9 @@ def clear_patients(request):
 @role_required(['creator'])
 def users_manage(request):
     users = User.objects.all().order_by('username')
+    scope_ids = get_admin_scope_user_ids(request.user)
+    if scope_ids:
+        users = users.filter(pk__in=scope_ids)
     return render(request, 'dashboard/users_manage.html', {'users': users})
 
 
@@ -274,20 +286,24 @@ def remove_admin(request, pk):
 @role_required(['creator'])
 def clear_patients(request):
     # Summaries for confirmation
-    total_patients = Patient.objects.count()
-    total_appointments = Appointment.objects.count()
-    total_payments = Payment.objects.count()
+    scoped_patients = limit_queryset_for_admin(Patient.objects.all(), request.user)
+    scoped_appointments = limit_queryset_for_admin(Appointment.objects.all(), request.user)
+    scoped_payments = limit_queryset_for_admin(Payment.objects.all(), request.user, 'appointment__created_by')
+    total_patients = scoped_patients.count()
+    total_appointments = scoped_appointments.count()
+    total_payments = scoped_payments.count()
     try:
-        total_expenses = ExpenseRequest.objects.count()
+        expense_qs = limit_queryset_for_admin(ExpenseRequest.objects.all(), request.user, 'requested_by') if ExpenseRequest else None
+        total_expenses = expense_qs.count() if expense_qs is not None else 0
     except Exception:
         total_expenses = 0
 
     if request.method == 'POST':
         with transaction.atomic():
             # Delete payments first (redundant, but clearer) then appointments and patients
-            Payment.objects.all().delete()
-            Appointment.objects.all().delete()
-            Patient.objects.all().delete()
+            limit_queryset_for_admin(Payment.objects.all(), request.user, 'appointment__created_by').delete()
+            limit_queryset_for_admin(Appointment.objects.all(), request.user).delete()
+            limit_queryset_for_admin(Patient.objects.all(), request.user).delete()
             # Mark cleanup date in settings
             try:
                 s = Setting.objects.first()
@@ -334,7 +350,7 @@ def user_add(request):
     if request.method == 'POST':
         form = AdminCreateUserForm(request.POST)
         if form.is_valid():
-            user = form.save()
+            user = form.save(creator=request.user)
             # If role is Admin2, ensure Doctor record exists so it appears in lists
             try:
                 from accounts.models import Roles
@@ -379,11 +395,16 @@ def reset_doc_counter(request):
 @role_required(['creator'])
 def stats_view(request):
     today = date.today()
+    appointment_scope = limit_queryset_for_admin(Appointment.objects.all(), request.user)
+    payment_scope = limit_queryset_for_admin(Payment.objects.all(), request.user, 'appointment__created_by')
+    expense_scope = None
+    if ExpenseRequest and ExpenseStatus:
+        expense_scope = limit_queryset_for_admin(ExpenseRequest.objects.all(), request.user, 'requested_by')
 
     # 30 kunlik qabul soni (har kun)
     since_30 = today - timedelta(days=29)
     agg30 = (
-        Appointment.objects.filter(date__gte=since_30)
+        appointment_scope.filter(date__gte=since_30)
         .annotate(day=TruncDay('date'))
         .values('day')
         .annotate(total=Count('id'))
@@ -399,7 +420,7 @@ def stats_view(request):
 
     # Bo'limlar bo'yicha tashriflar (oxirgi 30 kun) — pie chart ma'lumotlari
     by_department = (
-        Appointment.objects.filter(date__gte=since_30)
+        appointment_scope.filter(date__gte=since_30)
         .values('doctor__department')
         .annotate(total=Count('id'))
         .order_by('-total')
@@ -410,7 +431,7 @@ def stats_view(request):
     # 1 hafta davomida noyob bemorlar soni (har kun)
     since_7 = today - timedelta(days=6)
     weekly = (
-        Appointment.objects.filter(date__gte=since_7)
+        appointment_scope.filter(date__gte=since_7)
         .values('date')
         .annotate(total=Count('patient', distinct=True))
         .order_by('date')
@@ -422,7 +443,7 @@ def stats_view(request):
 
     # Har bir shifokorning (oxirgi 30 kun) JAMI QABULLARI soni
     per_doctor_week = (
-        Appointment.objects.filter(date__gte=since_30)
+        appointment_scope.filter(date__gte=since_30)
         .values('doctor__id', 'doctor__full_name')
         .annotate(total=Count('id'))
         .order_by('doctor__full_name')
@@ -442,7 +463,7 @@ def stats_view(request):
     if pay_end < pay_start:
         pay_start, pay_end = pay_end, pay_start
 
-    admin3_qs = Payment.objects.select_related('appointment__patient', 'appointment__doctor', 'cashier') \
+    admin3_qs = payment_scope.select_related('appointment__patient', 'appointment__doctor', 'cashier') \
         .filter(created_at__date__gte=pay_start, created_at__date__lte=pay_end, cashier__role=Roles.ADMIN3) \
         .order_by('-created_at')
 
@@ -654,11 +675,11 @@ def stats_view(request):
     # Default to full history: earliest of payments/expenses -> today
     if not fin_start_param:
         try:
-            pmin = Payment.objects.aggregate(m=Min('created_at'))['m']
+            pmin = payment_scope.aggregate(m=Min('created_at'))['m']
         except Exception:
             pmin = None
         try:
-            emin = ExpenseRequest.objects.aggregate(m=Min('approved_at'))['m'] if ExpenseRequest else None
+            emin = expense_scope.aggregate(m=Min('approved_at'))['m'] if expense_scope is not None else None
         except Exception:
             emin = None
         first = None
@@ -673,7 +694,7 @@ def stats_view(request):
     # Aggregate daily
     from collections import defaultdict
     rev_daily = defaultdict(float)
-    for row in (Payment.objects
+    for row in (payment_scope
                 .filter(created_at__date__gte=fin_start, created_at__date__lte=fin_end)
                 .annotate(day=TruncDay('created_at'))
                 .values('day')
@@ -682,8 +703,8 @@ def stats_view(request):
         rev_daily[row['day'].date()] = float(row['total'] or 0)
 
     exp_daily = defaultdict(float)
-    if ExpenseRequest and ExpenseStatus:
-        for row in (ExpenseRequest.objects
+    if expense_scope is not None:
+        for row in (expense_scope
                     .filter(status=ExpenseStatus.APPROVED,
                             approved_at__date__gte=fin_start,
                             approved_at__date__lte=fin_end)

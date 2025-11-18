@@ -15,6 +15,7 @@ class Roles(models.TextChoices):
 class User(AbstractUser):
     role = models.CharField("Rol", max_length=20, choices=Roles.choices, default=Roles.STAFF)
     avatar = models.ImageField("Avatar", upload_to='avatars/', null=True, blank=True)
+    created_by = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='created_users')
 
     @property
     def avatar_url(self):

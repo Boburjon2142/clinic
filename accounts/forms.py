@@ -81,11 +81,13 @@ class AdminCreateUserForm(UserCreationForm):
         if 'password2' in self.fields:
             self.fields['password2'].widget.attrs.update({"class": "form-control"})
 
-    def save(self, commit=True):
+    def save(self, commit=True, creator=None):
         user = super().save(commit=False)
         user.role = self.cleaned_data.get('role') or user.role
         if user.role in (Roles.ADMIN, Roles.ADMIN1, Roles.ADMIN2, Roles.ADMIN3):
             user.is_staff = True
+        if creator:
+            user.created_by = creator
         if commit:
             user.save()
         return user
